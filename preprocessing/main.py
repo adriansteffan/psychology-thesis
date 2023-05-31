@@ -9,17 +9,11 @@ import json
 import numpy as np
 import pandas as pd
 
-# TODO: Webgazer Render & Data
-# TODO: ffmpeg base
-# TODO: icatcher run
-# todo: icatcher data gathering
-
-RENDER_WEBGAZER = True
-RENDER_ICATCHER = True
-RENDER_WEBCAM_VIDEOS = False
 
 # target fps for videos that get converted in preparation for icatcher
 TARGET_FPS = 20
+
+RESAMPLING_RATE_WEBGAZER = 20
 
 STIMULUS_WIDTH = 1280.0
 STIMULUS_HEIGHT = 960.0
@@ -77,6 +71,10 @@ stimulus_endings = [stimulus + ".webm" for stimulus in stimuli]
 
 videos_relevant = stimuli + ['calibration', 'validation1', 'validation2']
 
+RENDER_WEBGAZER = True
+RENDER_ICATCHER = True
+RENDER_WEBCAM_VIDEOS = False
+
 
 def main():
 
@@ -85,8 +83,8 @@ def main():
     webgazer = WebGazerHandler(participants)
     icatcher = ICatcherHandler(participants)
 
+    icatcher.run(RENDER_ICATCHER)
     webgazer.run(RENDER_WEBGAZER)
-    #icatcher.run(RENDER_ICATCHER)
 
 
 def prepare_data(render_webcam_videos):
@@ -161,15 +159,19 @@ class EyetrackingHandler:
 
     def __init__(self, participants):
         self.data = None
+        self.data_filtered = None
+        self.data_resampled = None
         self.participants = participants
 
     def run(self, should_render):
         self.preprocess()
+        self._filter_data()
+
         if should_render:
-            for p in self.participants:
-                for s in stimuli:
+            for s in stimuli:
+                for p in self.participants:
                     self.render(p, s)
-            self.render_joint()
+                self.render_joint(s)
 
     def preprocess(self):
         pass
@@ -177,7 +179,38 @@ class EyetrackingHandler:
     def render(self, participant, stimulus):
         pass
 
-    def render_joint(self):
+    def _resample_data(self, backfill_cols=None):
+        # 38001
+        if backfill_cols is None:
+            backfill_cols = ['trial']
+
+        tmp_df = pd.DataFrame({'t': range(0, 500, 50), 'new': True})\
+            .merge(pd.DataFrame({'id': self.data['id'].unique()}), how='cross')\
+            .merge(pd.DataFrame({'stimulus': self.data['stimulus'].unique()}), how='cross')
+
+        self.data_resampled = self.data.copy()
+        self.data_resampled['new'] = False
+        self.data_resampled = pd.concat([self.data_resampled, tmp_df])\
+            .sort_values(['t', 'new'], ascending=[True, True])\
+            .groupby(['id', 'stimulus'], as_index=False)\
+            .apply(lambda x: x.fillna(method="ffill"))\
+            .query('new == True')\
+            .drop('new', axis=1)\
+            .sort_values(['id', 'stimulus', 't'])\
+            .reset_index(drop=True)
+
+        self.data_resampled.loc[:, backfill_cols] = self.data_resampled.loc[:, backfill_cols].bfill()
+
+    def _filter_data(self):
+        self.data_filtered = self.data  # TODO 1. add marker (excluded, reason) to data, 2. filter according to data in data_filtered
+
+    @staticmethod
+    def _side_to_hit(stimuli, sides):
+        targets = ['none' if s not in target_aoi_location.keys() else target_aoi_location[s] for s in stimuli]
+        distractors = ['right' if t == 'left' else ('left' if t == 'right' else 'none') for t in targets]
+        return ['target' if s == t else ('distractor' if s == d else 'none') for s, t, d in zip(sides, targets, distractors)]
+
+    def render_joint(self, stimulus):
         pass
 
     @staticmethod
@@ -199,8 +232,8 @@ class EyetrackingHandler:
             return None, None, True
 
     @staticmethod
-    def _prepare_cv2_video(stimulus_file, dest_file):
-        video = cv2.VideoCapture(f'{MEDIA_DIR}/{stimulus_file}', )
+    def _prepare_cv2_video(input_file, dest_file):
+        video = cv2.VideoCapture(input_file, )
         fps = video.get(cv2.CAP_PROP_FPS)
         vid_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
         vid_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -209,6 +242,17 @@ class EyetrackingHandler:
                                        (vid_width, vid_height),
                                        True)
         return video, video_writer, fps
+
+    @staticmethod
+    def _overlay_fc(input_path, output_path):
+        # add frame counter to video
+        subprocess.Popen(['ffmpeg', '-y',
+                          '-i', input_path,
+                          '-vf',
+                          "drawtext=fontfile=Arial.ttf: text='%{frame_num} / %{pts}': start_number=1: x=(w-tw)/2: y=h-lh: fontcolor=black: fontsize=(h/20): box=1: boxcolor=white: boxborderw=5",
+                          '-c:a', 'copy', '-c:v', 'libx264', '-crf', '23',
+                          output_path,
+                          ]).wait()
 
 
 class WebGazerHandler(EyetrackingHandler):
@@ -235,7 +279,7 @@ class WebGazerHandler(EyetrackingHandler):
 
             for index, trial in enumerate(data):
 
-                df_dict['trial_num'] = index + 1
+                df_dict['trial'] = index + 1
                 df_dict['stimulus'] = trial['stimulus'][0].split("/")[-1].split(".")[0]
 
                 # calculate sampling rate
@@ -261,15 +305,27 @@ class WebGazerHandler(EyetrackingHandler):
                     df_dict['y'] = y_stim
                     df_dict['outside'] = outside
 
-                    df_dict['internal_aoi_hit'] = "none"
+                    df_dict['aoi'] = 'none'
                     if "hitAois" in datapoint:
-                        df_dict['internal_aoi_hit'] = datapoint[
-                            "hitAois"]  # TODO make this more meaningful in the final data
+                        hit_aoi_string = ','.join(datapoint['hitAois'])
+                        df_dict['aoi'] = 'left' if 'left' in hit_aoi_string else ('right' if 'right' in hit_aoi_string else 'none')
+
+                    df_dict['side'] = 'left' if x_stim < STIMULUS_WIDTH/2.0 else 'right'
 
                     df_dict_list.append(dict(df_dict))
 
-        self.data = pd.DataFrame(df_dict_list)
+        self.data = pd.DataFrame(df_dict_list)\
+            .sort_values(['id', 'stimulus', 't'])\
+            .reset_index(drop=True)
+
+        self.data['aoi_hit'] = self._side_to_hit(self.data['stimulus'], self.data['aoi'])
+        self.data['side_hit'] = self._side_to_hit(self.data['stimulus'], self.data['side'])
+
         self.data.to_csv(f'{OUT_DIR}/webgazer_data.csv', encoding='utf-8')
+
+        self._resample_data(backfill_cols=['trial', 'sampling_rate'])
+        self.data_resampled.to_csv(f'{OUT_DIR}/webgazer_RESAMPLED_data.csv', encoding='utf-8')
+        exit()
 
     def render(self, participant, stimulus):
 
@@ -315,17 +371,10 @@ class WebGazerHandler(EyetrackingHandler):
         else:
             shutil.copy(f'{MEDIA_DIR}/{stimulus_file}', pre1_path)
 
-        # add frame counter to video
-        subprocess.Popen(['ffmpeg', '-y',
-                          '-i', pre1_path,
-                          '-vf',
-                          "drawtext=fontfile=Arial.ttf: text='%{frame_num} / %{pts}': start_number=1: x=(w-tw)/2: y=h-lh: fontcolor=black: fontsize=(h/20): box=1: boxcolor=white: boxborderw=5",
-                          '-c:a', 'copy', '-c:v', 'libx264', '-crf', '23',
-                          pre2_path,
-                          ]).wait()
+        self._overlay_fc(pre1_path, pre2_path)
 
         print(f'Rendering {final_path}...')
-        video, video_writer, fps = self._prepare_cv2_video(stimulus_file, final_path)
+        video, video_writer, fps = self._prepare_cv2_video(pre2_path, final_path)
 
         success, frame = video.read()
         index = 1
@@ -350,6 +399,57 @@ class WebGazerHandler(EyetrackingHandler):
         os.remove(pre1_path)
         os.remove(pre2_path)
 
+    def render_joint(self, stimulus):
+
+        pre_path = f'{WEBGAZER_DIR}/{stimulus}_beeswarm_temp.mp4'
+        final_path = f'{WEBGAZER_DIR}/{stimulus}_beeswarm.mp4'
+
+        self._overlay_fc(f'{MEDIA_DIR}/{stimulus}.mp4', pre_path)
+
+        d = self.data_resampled[self.data_resampled['stimulus'] == stimulus]
+        d.reset_index(drop=True, inplace=True)
+
+        if len(d.index) == 0:
+            return
+
+        video, video_writer, fps = self._prepare_cv2_video(pre_path, final_path)
+
+        success, frame = video.read()
+        index = 1
+        timestep = 1000 / RESAMPLING_RATE_WEBGAZER
+        t = 0
+
+        while success:
+
+            timepoint_data = d[d['t'] == int(t)]
+            timepoint_data.reset_index(drop=True, inplace=True)
+
+            if len(timepoint_data.index) == 0:
+                return
+
+            for i, row in timepoint_data:
+                if not row['outside']:
+                    cv2.circle(frame, (row['x'], row['y']), radius=10, color=(255, 0, 0), thickness=-1)
+
+            cv2.circle(frame,
+                       (int(sum(timepoint_data['x'])/len(timepoint_data['x'])),
+                       int(sum(timepoint_data['y'])/len(timepoint_data['y']))),
+                       radius=15,
+                       color=(0, 0, 255), thickness=-1)
+
+            cv2.imshow("", frame)
+            cv2.waitKey(int(1000 / int(fps)))
+            video_writer.write(frame)
+            success, frame = video.read()
+
+            if t <= (index / fps) * 1000:
+                t += timestep
+            index += 1
+
+        video.release()
+        video_writer.release()
+        os.remove(pre_path)
+
 
 class ICatcherHandler(EyetrackingHandler):
 
@@ -372,7 +472,7 @@ class ICatcherHandler(EyetrackingHandler):
                                       ICATCHER_WEBCAM_DIR,
                                       '--output_annotation',
                                       ICATCHER_RAW_DIR,
-                                      '--show_output',
+                                      #'--show_output',
                                       '--use_fc_model',  # TODO report this one
                                       input_file
                                       ]).wait()
@@ -401,6 +501,9 @@ class ICatcherHandler(EyetrackingHandler):
         self.data.loc[self.data['look'] == 'right', 'look'] = 'left'
         self.data.loc[self.data['look'] == 'tmp', 'look'] = 'right'
 
+        self.data = self.data.drop('frame', axis=1)
+        self.data['hit'] = self._side_to_hit(self.data['stimulus'], self.data['look'])
+
         self.data.to_csv(f'{OUT_DIR}/icatcher_data.csv', encoding='utf-8')
 
     def render(self, participant, stimulus):
@@ -426,7 +529,7 @@ class ICatcherHandler(EyetrackingHandler):
 
         print(f'Rendering {final_path}...')
 
-        video, video_writer, fps = self._prepare_cv2_video(stimulus_file, temp_path)
+        video, video_writer, fps = self._prepare_cv2_video(f'{MEDIA_DIR}/{stimulus_file}', temp_path)
 
         success, frame = video.read()
         index = 1
