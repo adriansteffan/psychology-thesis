@@ -2,3 +2,5 @@ venv/
 output/
 data/
 .idea/
+
+__pycache__/
