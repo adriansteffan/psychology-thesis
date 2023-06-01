@@ -121,7 +121,7 @@ class EyetrackingHandler:
 
             self._render_frame(frame, gaze_point_index, d)
 
-            cv2.imshow("", frame)
+            #cv2.imshow("", frame)
             cv2.waitKey(int(1000 / int(fps)))
             video_writer.write(frame)
             success, frame = video.read()
