@@ -4,19 +4,30 @@ import subprocess
 import shutil
 
 import settings
-from icatcher_handler import ICatcherHandler
-from webgazer_handler import WebGazerHandler
+from src.icatcher_handler import ICatcherHandler
+from src.webgazer_handler import WebGazerHandler
+from src.owlet_handler import OWLETHandler
+
+# TODO: fix license
+# TODO: is the 16:9 requirement for OWLET expressed in code?
+# TODO: double check the "scale to stimulus" method
+# TODO: test rendering for owlet
+# TODO: create README and include (install cmake and in path, pip install) - make requirements.txt
 
 
 def main():
 
     participants = prepare_data(settings.RENDER_WEBCAM_VIDEOS)
 
-    webgazer = WebGazerHandler('webgazer', participants)
     icatcher = ICatcherHandler('icatcher', participants)
+    webgazer = WebGazerHandler('webgazer', participants, dot_color=(255, 0, 0))
+    owlet_nocalib = OWLETHandler('owlet_nocalib', participants, dot_color=(255, 255, 0), calibrate=True)
+    owlet = OWLETHandler('owlet', participants, dot_color=(0, 255, 0), calibrate=False)
 
     icatcher.run(settings.RENDER_ICATCHER)
     webgazer.run(settings.RENDER_WEBGAZER)
+    owlet_nocalib.run(settings.RENDER_OWLET_NOCALIB)
+    owlet.run(settings.RENDER_OWLET)
 
 
 def prepare_data(render_webcam_videos):
