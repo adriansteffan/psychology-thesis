@@ -8,11 +8,9 @@ from src.icatcher_handler import ICatcherHandler
 from src.webgazer_handler import WebGazerHandler
 from src.owlet_handler import OWLETHandler
 
-# TODO: fix license
 # TODO: is the 16:9 requirement for OWLET expressed in code?
 # TODO: double check the "scale to stimulus" method
 # TODO: test rendering for owlet
-# TODO: create README and include (install cmake and in path, pip install) - make requirements.txt
 
 
 def main():
