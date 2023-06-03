@@ -8,7 +8,6 @@ from src.icatcher_handler import ICatcherHandler
 from src.webgazer_handler import WebGazerHandler
 from src.owlet_handler import OWLETHandler
 
-# TODO: test rendering for owlet - are non 16:9 a problem - the code does not differentiate in obvious ways?
 
 def main():
 
@@ -16,8 +15,8 @@ def main():
 
     icatcher = ICatcherHandler('icatcher', participants)
     webgazer = WebGazerHandler('webgazer', participants, dot_color=(255, 0, 0))
-    owlet_nocalib = OWLETHandler('owlet_nocalib', participants, dot_color=(255, 255, 0), calibrate=True)
-    owlet = OWLETHandler('owlet', participants, dot_color=(0, 255, 0), calibrate=False)
+    owlet_nocalib = OWLETHandler('owlet_nocalib', participants, dot_color=(0, 255, 0), calibrate=False)
+    owlet = OWLETHandler('owlet', participants, dot_color=(255, 255, 0), calibrate=True)
 
     icatcher.run(settings.RENDER_ICATCHER)
     webgazer.run(settings.RENDER_WEBGAZER)

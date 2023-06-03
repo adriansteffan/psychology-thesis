@@ -135,7 +135,7 @@ class LookingCalibration(object):
         else:
             looks = looks[0:mid]
         looks.sort()
-        min_look = looks[0] # TODO if looks length is 0, what to return?
+        min_look = looks[0]
         max_look = looks[-1]
         range_vals = max_look - min_look
         middle = (min_look + max_look) / 2

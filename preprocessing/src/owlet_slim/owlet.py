@@ -29,6 +29,7 @@ class OWLET(object):
 
         self.presentation_width = presentation_width
         self.presentation_height = presentation_height
+        self.calibration_failure = False
 
         self.initialize_cur_gaze_list()
         self.initialize_potential_gaze_list()
@@ -60,6 +61,7 @@ class OWLET(object):
         df_dict_list = []
         df_dict = dict()
 
+        df_dict['calibration_failure'] = self.calibration_failure
         df_dict['window_width'] = self.presentation_width
         df_dict['window_height'] = self.presentation_height
 
@@ -75,12 +77,14 @@ class OWLET(object):
             # key = cv2.waitKey(100)
             frame, cur_x, cur_y, xcoord, ycoord, saccade, text = \
                 self.update_frame(frame, t)
+
+            df_dict['t'] = t
             df_dict['x'] = xcoord
             df_dict['y'] = ycoord
-            df_dict['t'] = t
+
             df_dict_list.append(dict(df_dict))
 
-            print(t, xcoord, ycoord)
+            #print(t, xcoord, ycoord)
 
             success, frame = video.read()
             count += 1
@@ -101,17 +105,32 @@ class OWLET(object):
         Arguments:
             calib_file (str): The path of the calibration video
         """
-        calib = LookingCalibration(show_output)
-        calib.calibrate_eyes(calib_file)
-        self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor(1)
-        self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
-            self.range_yvals_right, self.min_yval_left, self.min_yval_right = calib.get_min_max_ver()
 
-        self.min_xval2, self.max_xval2, self.range_xvals2, self.middle_x2 = calib.get_min_max_hor(2)
-        self.mean, self.maximum, self.minimum = calib.get_eye_ratio()
-        self.eyearea = calib.get_eye_area()
-        self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = calib.get_eye_area_ratio()
-        self.length = calib.get_avg_length()
+        # This try-catch block is a temporary hack - the original implementation crashes for certain calibration video
+        # properties. Use an additional variable to mark participants whether the calibration was successful
+        try:
+            calib = LookingCalibration(show_output)
+            calib.calibrate_eyes(calib_file)
+            self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor(1)
+            self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
+                self.range_yvals_right, self.min_yval_left, self.min_yval_right = calib.get_min_max_ver()
+
+            self.min_xval2, self.max_xval2, self.range_xvals2, self.middle_x2 = calib.get_min_max_hor(2)
+            self.mean, self.maximum, self.minimum = calib.get_eye_ratio()
+            self.eyearea = calib.get_eye_area()
+            self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = calib.get_eye_area_ratio()
+            self.length = calib.get_avg_length()
+            self.calibration_failure = False
+        except Exception:
+            print("Calibration Failure")
+            self.calibration_failure = True
+            self.min_xval, self.max_xval, self.range_xvals, self.middle_x = .5, .8, .3, .65
+            self.min_xval2, self.max_xval2, self.range_xvals2, self.middle_x2 = .4, .9, .5, .65
+            self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
+            self.range_yvals_right, self.min_yval_left, self.min_yval_right = .025, .06, .035, .0425, .035, .035, .025, .025
+            self.mean, self.maximum, self.minimum = 2.5, 3.5, 1.5
+            self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = 1.0, 1.35, .65
+            self.eyearea = -999
 
     def initialize_cur_gaze_list(self):
         """Initializes lists for the current gaze positions"""
@@ -385,9 +404,14 @@ class OWLET(object):
         color = (255, 255, 0)
         saccade = 0
         xcoord, ycoord = None, None
+
         cur_y_left, cur_y_right = self.get_gazepoint(self.cur_fix_ver_left, self.cur_fix_ver_right, self.prior_y_left,
                                                      self.prior_y_right)
         cur_x, cur_y = self.get_gazepoint(self.cur_fix_hor, self.cur_fix_ver, self.prior_x, self.prior_y)
+
+        # Modification of original code  to fix bug in edgecase
+        if cur_x is None or cur_y is None:
+            return frame, cur_x, cur_y, xcoord, ycoord, saccade, self.text
 
         # if the baby has looked, get the current gaze point and put it on the frame
         if self.haslooked is True and (self.is_looking is True or self.num_looks_away < 3):

@@ -1,6 +1,7 @@
 import os
 import cv2
 import statistics
+import numpy as np
 
 import settings
 from .base_handler import GazecodingHandler
@@ -57,6 +58,8 @@ class EyetrackingHandler(GazecodingHandler):
     @staticmethod
     def _translate_coordinates(video_aspect_ratio, win_height, win_width, vid_height, vid_width, winX, winY):
         """translate the output coordinates of the eye-tracker onto the stimulus video"""
+        if winX is None or np.isnan(winX) or winY is None or np.isnan(winY):
+            return None, None, True
         if win_width / win_height > video_aspect_ratio:  # full height video
             vid_on_screen_width = win_height * video_aspect_ratio
             outside = False

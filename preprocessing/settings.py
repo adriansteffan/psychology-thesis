@@ -18,6 +18,7 @@ BASE_PATH = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_PATH, 'data')
 MEDIA_DIR = os.path.join(BASE_PATH, 'media')
 OUT_DIR = os.path.join(BASE_PATH, 'output')
+EXCLUSION_DIR = os.path.join(BASE_PATH, 'exclusion')
 
 WEBCAM_MP4_DIR = os.path.join(OUT_DIR, 'webcam_mp4')
 RENDERS_DIR = os.path.join(OUT_DIR, 'renders')
@@ -32,14 +33,18 @@ target_aoi_location = {
 
 trial_order_indices = {
     'A': {
-        'calibration': 0,
+        'calibration': -1,
+        'validation1': 0,
+        'validation2': 5,
         'FAM_LL': 2,
         'FAM_LR': 1,
         'FAM_RR': 3,
         'FAM_RL': 4,
     },
     'B': {
-        'calibration': 0,
+        'calibration': -1,
+        'validation1': 0,
+        'validation2': 5,
         'FAM_LL': 3,
         'FAM_LR': 4,
         'FAM_RL': 1,
