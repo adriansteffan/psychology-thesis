@@ -8,10 +8,7 @@ from src.icatcher_handler import ICatcherHandler
 from src.webgazer_handler import WebGazerHandler
 from src.owlet_handler import OWLETHandler
 
-# TODO: is the 16:9 requirement for OWLET expressed in code?
-# TODO: double check the "scale to stimulus" method
-# TODO: test rendering for owlet
-
+# TODO: test rendering for owlet - are non 16:9 a problem - the code does not differentiate in obvious ways?
 
 def main():
 
