@@ -11,13 +11,13 @@ from .base_handler import GazecodingHandler
 
 class ICatcherHandler(GazecodingHandler):
 
-    def __init__(self, name, participants):
-        super().__init__(name, participants)
+    def __init__(self, name, participants, general_exclusions):
+        super().__init__(name, participants, general_exclusions)
 
         self.webcam_dir = os.path.join(self.render_dir, 'webcam')
         self.raw_dir = os.path.join(self.render_dir, 'raw_results')
 
-    def preprocess(self):
+    def _preprocess(self):
 
         if not os.path.exists(self.webcam_dir):
             os.makedirs(self.webcam_dir)
@@ -26,7 +26,11 @@ class ICatcherHandler(GazecodingHandler):
 
         # run icatcher
         for p in self.participants:
-            for s in settings.videos_relevant:
+            for s in settings.stimuli:
+
+                if not self._should_process_trial(p, s):
+                    continue
+
                 input_file = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
                 output_file_video = f'{self.webcam_dir}/{p}_{s}_output.mp4'
                 output_file_data = f'{self.raw_dir}/{p}_{s}.txt'
@@ -44,7 +48,7 @@ class ICatcherHandler(GazecodingHandler):
 
         df_list = []
         for p in self.participants:
-            for s in settings.stimuli + ['calibration']:
+            for s in settings.stimuli_critical + ['calibration']:
                 data_file = f'{self.raw_dir}/{p}_{s}.txt'
                 if not os.path.isfile(data_file):
                     continue
@@ -54,7 +58,7 @@ class ICatcherHandler(GazecodingHandler):
 
                 data['id'] = p
                 data['stimulus'] = s
-                data['trial'] = settings.trial_order_indices[p.split("_")[-1]][s]
+                data['trial'] = settings.STIMULI[s][f'{p.split("_")[-1]}_index']
                 data['t'] = data['frame'] * 1000 / settings.TARGET_FPS
                 df_list.append(data)
 
@@ -77,10 +81,10 @@ class ICatcherHandler(GazecodingHandler):
         self.backfill_cols += ['trial']
 
     @staticmethod
-    def _paint_black_rect(fr, side, opacity):
-        y, h = 0, int(settings.STIMULUS_HEIGHT)
-        w = int(settings.STIMULUS_WIDTH / 2.0)
-        x = 0 if side == 'left' else int(settings.STIMULUS_WIDTH / 2.0)
+    def _paint_black_rect(fr, stimulus_name, side, opacity):
+        y, h = 0, int(settings.STIMULI[stimulus_name]['height'])
+        w = int(settings.STIMULI[stimulus_name]['width'] / 2.0)
+        x = 0 if side == 'left' else int(settings.STIMULI[stimulus_name]['width'] / 2.0)
 
         sub_img = fr[y:h, x:x + w]
         black_rect = np.zeros(sub_img.shape, dtype=np.uint8)
@@ -91,13 +95,13 @@ class ICatcherHandler(GazecodingHandler):
         is_valid_look = data['look'][index] == 'left' or data['look'][index] == 'right'
 
         if data['look'][index] != 'left':
-            self._paint_black_rect(frame, 'left', 0.5)
+            self._paint_black_rect(frame, data['stimulus'][index], 'left', 0.5)
         if data['look'][index] != 'right':
-            self._paint_black_rect(frame, 'right', 0.5)
+            self._paint_black_rect(frame, data['stimulus'][index], 'right', 0.5)
 
         if is_valid_look:
-            w = int(settings.STIMULUS_WIDTH / 2.0)
-            h = int(settings.STIMULUS_HEIGHT)
+            w = int(settings.STIMULI[data['stimulus'][index]]['width'] / 2.0)
+            h = int(settings.STIMULI[data['stimulus'][index]]['height'])
             cv2.circle(frame, (int(w / 2 if data['look'][index] == 'left' else w / 2 * 3), int(h / 2)),
                        radius=10, color=(0, 0, 255), thickness=-1)
 
@@ -112,12 +116,14 @@ class ICatcherHandler(GazecodingHandler):
             value_counts = timepoint_data['look'].value_counts()
             left_per = value_counts.get('left', 0) / (value_counts.get('left', 0) + value_counts.get('right', 0))
 
-            self._paint_black_rect(frame, 'left', 1 - left_per)
-            self._paint_black_rect(frame, 'right', left_per)
+            self._paint_black_rect(frame, timepoint_data['stimulus'][0], 'left', 1 - left_per)
+            self._paint_black_rect(frame, timepoint_data['stimulus'][0], 'right', left_per)
 
             def put_percentage(fr, x, percentage):
                 cv2.putText(fr, f'{(int(percentage * 100)):02d}%', (int(x), 50), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
                             (0, 0, 255), 2, cv2.LINE_AA)
 
             put_percentage(frame, 30, left_per)
-            put_percentage(frame, settings.STIMULUS_WIDTH - 130, 1 - left_per)
+            put_percentage(frame, settings.STIMULI[timepoint_data['stimulus'][0]]['width'] - 130, 1 - left_per)
+
+

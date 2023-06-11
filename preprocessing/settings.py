@@ -1,17 +1,18 @@
 import os
+import csv
 
 # target fps for videos that get converted in preparation for icatcher and owlet
 TARGET_FPS = 20
 
 RESAMPLING_RATE = 20
 
-STIMULUS_WIDTH = 1280.0
-STIMULUS_HEIGHT = 960.0
+___STIMULUS_WIDTH = 1280.0
+___STIMULUS_HEIGHT = 960.0
 
-SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 1080
+SCREEN_WIDTH = 960#1920
+SCREEN_HEIGHT = 540#1080
 
-STIMULUS_ASPECT_RATIO = STIMULUS_WIDTH / STIMULUS_HEIGHT
+____STIMULUS_ASPECT_RATIO = ___STIMULUS_WIDTH / ___STIMULUS_HEIGHT
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -21,54 +22,50 @@ OUT_DIR = os.path.join(BASE_PATH, 'output')
 EXCLUSION_DIR = os.path.join(BASE_PATH, 'exclusion')
 
 WEBCAM_MP4_DIR = os.path.join(OUT_DIR, 'webcam_mp4')
+CROPPED_WEBCAM_MP4_DIR = os.path.join(OUT_DIR, 'webcam_16_9_mp4')
 RENDERS_DIR = os.path.join(OUT_DIR, 'renders')
-
-
-target_aoi_location = {
-    "FAM_LL": "left",
-    "FAM_LR": "right",
-    "FAM_RL": "left",
-    "FAM_RR": "right",
-}
-
-trial_order_indices = {
-    'A': {
-        'calibration': -1,
-        'validation1': 0,
-        'validation2': 5,
-        'FAM_LL': 2,
-        'FAM_LR': 1,
-        'FAM_RR': 3,
-        'FAM_RL': 4,
-    },
-    'B': {
-        'calibration': -1,
-        'validation1': 0,
-        'validation2': 5,
-        'FAM_LL': 3,
-        'FAM_LR': 4,
-        'FAM_RL': 1,
-        'FAM_RR': 2,
-    },
-}
-
-presentation_duration = {
-    "FAM_LL": 38.0,
-    "FAM_LR": 38.0,
-    "FAM_RL": 38.0,
-    "FAM_RR": 38.0,
-    "calibration": 27.0,
-    "validation1": 4.0,
-    "validation2": 4.0,
-}
-
-stimuli = list(target_aoi_location.keys())
-stimulus_endings = [stimulus + ".webm" for stimulus in stimuli]
-
-videos_relevant = stimuli + ['calibration', 'validation1', 'validation2']
 
 RENDER_WEBGAZER = True
 RENDER_ICATCHER = True
 RENDER_OWLET_NOCALIB = True
 RENDER_OWLET = True
 RENDER_WEBCAM_VIDEOS = False
+
+WEBGAZER_SAMPLING_CUTOFF = 10
+
+GAZECODER_NAMES = {
+    'OWLET': 'owlet',
+    'OWLET_NOCALIB': 'owlet_nocalib',
+    'WEBGAZER': 'webgazer',
+    'ICATCHER': 'icatcher',
+}
+
+STIMULUS_BLACKLIST = {
+    GAZECODER_NAMES['OWLET']: ['calibration'],
+    GAZECODER_NAMES['OWLET_NOCALIB']: [],
+    GAZECODER_NAMES['WEBGAZER']: ['calibration', 'validation1', 'validation2'],
+    GAZECODER_NAMES['ICATCHER']: ['validation1', 'validation2']
+}
+
+
+STIMULI = {}
+with open(os.path.join(os.path.dirname(__file__), "stimuli_metadata.csv"), 'r') as f:
+    for row in csv.DictReader(f):
+        STIMULI[row['name']] = dict(row)
+
+for key_o, stimulus in STIMULI.items():
+    for key_i, value_i in stimulus.items():
+        try:
+            STIMULI[key_o][key_i] = int(value_i)
+        except ValueError:
+            try:
+                STIMULI[key_o][key_i] = float(value_i)
+            except ValueError:
+                STIMULI[key_o][key_i] = value_i
+
+stimuli = list(STIMULI.keys())
+stimuli_critical = list({k: v for k, v in STIMULI.items() if v['critical'] == 1}.keys())
+
+
+
+

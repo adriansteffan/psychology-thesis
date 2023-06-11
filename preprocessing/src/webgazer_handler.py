@@ -9,11 +9,26 @@ from .base_xy_handler import EyetrackingHandler
 
 class WebGazerHandler(EyetrackingHandler):
 
-    def __init__(self, name, participants, dot_color):
-        super().__init__(name, participants, dot_color)
+    def __init__(self, name, participants, general_exclusions, dot_color):
+        super().__init__(name, participants, general_exclusions, dot_color)
         self.data_validation = None
 
-    def preprocess(self):
+    def _get_exclusion_functions(self):
+        parent_functions = super()._get_exclusion_functions()
+
+        def exclude_no_tracking_data(data):
+            exclude_tracking = data[data.apply(lambda r: not os.path.isfile(f'{settings.DATA_DIR}/{r["id"]}_data.json'), axis=1)][
+                ['id', 'stimulus']].drop_duplicates(keep='first').reset_index(drop=True)
+            return exclude_tracking
+
+        def exclude_samplingrate(data):
+            exclude_sampling = data[data['sampling_rate'] < settings.WEBGAZER_SAMPLING_CUTOFF][
+                ['id', 'stimulus']].drop_duplicates(keep='first').reset_index(drop=True)
+            return exclude_sampling
+
+        return parent_functions + [(exclude_no_tracking_data, '_no_tracking_data_wg'), (exclude_samplingrate, '_low_sampling_wg')]
+
+    def _preprocess(self):
         df_dict_list = []
         df_dict_list_validation = []
         for p in self.participants:
@@ -41,6 +56,9 @@ class WebGazerHandler(EyetrackingHandler):
                 df_dict['trial'] = index + 1
                 df_dict['stimulus'] = trial['stimulus'][0].split("/")[-1].split(".")[0]
 
+                if not self._should_process_trial(p, df_dict['stimulus']):
+                    continue
+
                 # calculate sampling rate
                 datapoints = trial['webgazer_data']
                 sampling_diffs = [datapoints[i + 1]['t'] - datapoints[i]['t'] for i in range(1, len(datapoints) - 1)]
@@ -51,11 +69,11 @@ class WebGazerHandler(EyetrackingHandler):
                 for datapoint in datapoints:
 
                     df_dict['t'] = datapoint["t"]
-                    x_stim, y_stim, outside = self._translate_coordinates(settings.STIMULUS_ASPECT_RATIO,
+                    x_stim, y_stim, outside = self._translate_coordinates(settings.STIMULI[df_dict['stimulus']]['width'] / settings.STIMULI[df_dict['stimulus']]['height'],
                                                                           trial['windowHeight'],
                                                                           trial['windowWidth'],
-                                                                          settings.STIMULUS_HEIGHT,
-                                                                          settings.STIMULUS_WIDTH,
+                                                                          settings.STIMULI[df_dict['stimulus']]['height'],
+                                                                          settings.STIMULI[df_dict['stimulus']]['width'],
                                                                           datapoint["x"],
                                                                           datapoint["y"]
                                                                           )
@@ -69,7 +87,7 @@ class WebGazerHandler(EyetrackingHandler):
                         hit_aoi_string = ','.join(datapoint['hitAois'])
                         df_dict['aoi'] = 'left' if 'left' in hit_aoi_string else ('right' if 'right' in hit_aoi_string else 'none')
 
-                    df_dict['side'] = 'left' if x_stim < settings.STIMULUS_WIDTH / 2.0 else 'right'
+                    df_dict['side'] = 'left' if x_stim < settings.STIMULI[df_dict['stimulus']]['width'] / 2.0 else 'right'
 
                     df_dict_list.append(dict(df_dict))
 

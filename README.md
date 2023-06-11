@@ -88,7 +88,7 @@ python3.9 main.py --step 2
 
 What the program did:
 * Render tracker-specific videos for all participants, overlaying stimulus footage, webcam video and tracker-specific information (e.g. gaze dots). The videos can be found at `preprocessing/output/renders/{tracker_name}/{participant_id}/{stimulus_name}.mp4` and only include trials (participant + stimulus) that were not excluded in the previous step. 
-* Create tracker-specific exclusion files. They can be found at `preprocessing/exclusion/exclusion_{tracker_name}.csv` and only include trials (participant + stimulus) that were not excluded in the previous step. These already include prefilled tracker-specific exclusions (e.g. low webgazer sampling rate, no face found, calibration failed).
+* Create tracker-specific exclusion files. They can be found at `preprocessing/exclusion/exclusions_{tracker_name}.csv` and only include trials (participant + stimulus) that were not excluded in the previous step. These already include prefilled tracker-specific exclusions (e.g. low webgazer sampling rate, no face found, calibration failed).
 
 
 What you need to do:
@@ -109,7 +109,6 @@ What the program did:
 * Export all preprocessed eye-tracking data to `preprocessing/output/{tracker_name}_data.csv` and `preprocessing/output/{tracker_name}_RESAMPLED_data.csv`
 
 
-Note that the excluded participants still show up in the final data export, being tagged with the columns `excluded` and `exclusion_reason`. This approach enables a detailed analysis of exclusions later while still making it easy to clean up the data with a single filter function.
 
 ### B) Running the entire pipeline at once
 
@@ -123,7 +122,7 @@ in the `preprocessing` directory. The output of this operation is dependent on t
 
 * Exclusion files do not exist: 
     * All eye-tracker outputs will be rendered onto stimuli videos
-    * The combined renders include *all* participants
+    * The combined renders include *all* participants except for tracker-generated exclusions
     * The final exports only include tracker-generated exclusion criteria
 * Exclusion files exist:
     * The exact same output of the step-by-step process.
@@ -150,6 +149,10 @@ This project leverages [ICatcher+](https://github.com/erelyotam/icatcher_plus), 
 Erel, Y., Shannon, K. A., Chu, J., Scott, K., Struhl, M. K., Cao, P., Tan, X., Hart, P., Raz, G., Piccolo, S., Mei, C., Potter, C., Jaffe-Dax, S., Lew-Williams, C., Tenenbaum, J., Fairchild, K., Bermano, A., & Liu, S. (2023). iCatcher+: Robust and Automated Annotation of Infants’ and Young Children’s Gaze Behavior From Videos Collected in Laboratory, Field, and Online Studies. Advances in Methods and Practices in Psychological Science.
 
 
+## Known Issues / Todos
+
+* Renders of gaze dots onto the calibration stimulus are a bit innacurate, as the renderer expects stimuli with fixed aspect ratios, but the calibration varied with the screen size.
+* OWLET expects 16:9 webcam videos. Videos get cropped to fit that aspect ratio when preprocessing the videos for OWLET; however, this has only been tested with videos that are already 16:9 or that get cropped from a longer format (e.g. 4:3). The feature could break for wider video formats (e.g. 21:9)
 
 ## License
 

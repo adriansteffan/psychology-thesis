@@ -5,48 +5,120 @@ import shutil
 import pandas as pd
 
 import settings
+from . import utils
 
 
 class GazecodingHandler:
 
-    def __init__(self, name, participants):
+    def __init__(self, name, participants, general_exclusions=None):
         self.data = None
-        self.data_filtered = None
         self.data_resampled = None
         self.backfill_cols = []
 
         self.name = name
         self.participants = participants
+        self.general_exclusions = general_exclusions
+        self.specific_exclusions_path = os.path.join(settings.EXCLUSION_DIR,
+                                                                      f'exclusions_{self.name}.csv')
         self.render_dir = os.path.join(settings.RENDERS_DIR, self.name)
 
-    def run(self, should_render):
-        self.preprocess()
-        self._filter_data()
-        self._resample_data()
-        self._save_data()
+        self.stimulus_blacklist = settings.STIMULUS_BLACKLIST[self.name] if self.name in settings.STIMULUS_BLACKLIST else []
 
-        if should_render:
-            for s in settings.stimuli:
-                for p in self.participants:
-                    pass #self.render(p, s)
-                self.render_joint(s)
+    def run(self, step, should_render):
+        if step and step not in [2, 3]:
+            exit("Invalid step provided to GazecodingHandler")
 
-    def preprocess(self):
+        if self.general_exclusions is None:
+            self.general_exclusions = utils.create_empty_general_exclusion_df(self.participants)
+
+        self._preprocess()
+
+        if not step or step == 2:
+            if os.path.isfile(self.specific_exclusions_path):
+                # already there, do nothing if you are doing a full run, abort if you are on step 2
+                if step == 2:
+                    exit(f'Specific exclusion file  at {self.specific_exclusions_path} already exists. '
+                         f'To make sure that you are not accidentally overwriting it, please remove it first.')
+                specific_exclusions = pd.read_csv(self.specific_exclusions_path)
+                utils.validate_exclusions(specific_exclusions, self.specific_exclusions_path)
+            else:
+                specific_exclusions = self.general_exclusions[(self.general_exclusions['excluded'] != 'x') & (~self.general_exclusions['stimulus'].isin(self.stimulus_blacklist))].reset_index(drop=True)
+                specific_exclusions['excluded'] = ''
+                specific_exclusions['exclusion_reason'] = ''
+
+                specific_exclusions = self._automatically_exclude_specific(specific_exclusions)
+                specific_exclusions.to_csv(self.specific_exclusions_path, encoding='utf-8', index=False)
+
+            if should_render:
+                # Only render trials that were not excluded generally or automatically
+                included_so_far = specific_exclusions[specific_exclusions['excluded'] != 'x']
+                for _, row in included_so_far.iterrows():
+                    if row['stimulus'] in self.stimulus_blacklist:
+                        continue
+                    pass  # self._render(row['id'], row['stimulus'])
+
+        if not step or step == 3:
+
+            self._filter_data()
+            self._resample_data()
+
+            if should_render:
+                for s in settings.stimuli:
+                    if s in self.stimulus_blacklist:
+                        continue
+                    self._render_joint(s)
+
+            self._save_data()
+
+    def _should_process_trial(self, participant, stimulus):
+        return self.general_exclusions[(self.general_exclusions['id'] == participant) & (self.general_exclusions['stimulus'] == stimulus)]['excluded'].iloc[0] != 'x' and stimulus not in self.stimulus_blacklist
+
+    def _preprocess(self):
         pass
 
+    def _get_exclusion_functions(self):
+        return []
+
+    def _automatically_exclude_specific(self, general_exclusions):
+
+        # tag all participants that are missing in the eyetracking data of the given tracker (dont appear in the data)
+        in_data = self.data[['id', 'stimulus']].drop_duplicates(keep='first').reset_index(drop=True)
+        in_exclusion = general_exclusions[['id', 'stimulus']].drop_duplicates(keep='first').reset_index(drop=True)
+        nodata_table = pd.merge(in_exclusion, in_data, indicator=True, how='outer').query('_merge=="left_only"').drop('_merge', axis=1)
+        nodata_table['excluded'] = 'x'
+        nodata_table['exclusion_reason'] = '_no_tracker_data'
+
+        exclusion_tables = [nodata_table]
+
+        for fun, reason in self._get_exclusion_functions():
+            excl_table = fun(self.data)
+            excl_table['excluded'] = 'x'
+            excl_table['exclusion_reason'] = reason
+            exclusion_tables.append(excl_table)
+
+        return pd.concat(exclusion_tables + [general_exclusions]).drop_duplicates(subset=['id', 'stimulus'],
+                                                                      keep="first").reset_index(drop=True)
+
     def _filter_data(self):
-        self.data_filtered = self.data  # TODO 1. add marker (excluded, reason) to data, 2. filter according to data in data_filtered
+        specific_exclusions = pd.read_csv(self.specific_exclusions_path)
+        utils.validate_exclusions(specific_exclusions, self.specific_exclusions_path)
+        exclusions_all = pd.concat([specific_exclusions, self.general_exclusions])
+        excluded = exclusions_all[(exclusions_all['excluded'] == 'x') & (~exclusions_all['stimulus'].isin(self.stimulus_blacklist))].reset_index(drop=True)
+        self.data = pd.merge(self.data, excluded, on=['id', 'stimulus'], how='outer')
+        self.data = self.data[self.data['excluded'] != 'x']\
+            .drop(['excluded', 'exclusion_reason'], axis=1)\
+            .reset_index(drop=True)
 
     def _resample_data(self, backfill_cols=None):
         if backfill_cols is None:
             backfill_cols = ['trial']
 
         # use the max trial duration for all stimuli to simplify temp_df creation -> delete the nonsensical rows in the next step
-        tmp_df = pd.DataFrame({'t': range(0, int(max(settings.presentation_duration.values()) * 1000 + 1), int(1000 / settings.RESAMPLING_RATE)), 'new': True})\
-            .merge(pd.DataFrame({'id': self.data['id'].unique()}), how='cross')\
-            .merge(pd.DataFrame({'stimulus': self.data['stimulus'].unique()}), how='cross')
+        max_duration_seconds = max([stim['presentation_duration'] for key, stim in settings.STIMULI.items()])
+        tmp_df = pd.DataFrame({'t': range(0, int(max_duration_seconds * 1000 + 1), int(1000 / settings.RESAMPLING_RATE)), 'new': True})\
+            .merge(self.data[['id', 'stimulus']].drop_duplicates(keep='first').reset_index(drop=True), how='cross')
 
-        tmp_df['max_timestamp'] = [settings.presentation_duration[stim] * 1000 for stim in tmp_df['stimulus']]
+        tmp_df['max_timestamp'] = [settings.STIMULI[stim]['presentation_duration'] * 1000 for stim in tmp_df['stimulus']]
         tmp_df = tmp_df[tmp_df['t'] <= tmp_df['max_timestamp']]\
             .drop('max_timestamp', axis=1)\
             .reset_index(drop=True)
@@ -84,7 +156,7 @@ class GazecodingHandler:
         """
         shutil.copy(input_path, output_path)
 
-    def render(self, participant, stimulus):
+    def _render(self, participant, stimulus):
         d = self.data[(self.data['id'] == participant) & (self.data['stimulus'] == stimulus)]
         d.reset_index(drop=True, inplace=True)
 
@@ -145,7 +217,11 @@ class GazecodingHandler:
     def _render_frame_joint(self, frame, index, data):
         pass
 
-    def render_joint(self, stimulus):
+    def _render_joint(self, stimulus):
+
+        if not os.path.exists(self.render_dir):
+            os.makedirs(self.render_dir)
+
         pre_path = f'{self.render_dir}/{stimulus}_all_temp.mp4'
         final_path = f'{self.render_dir}/{stimulus}_all.mp4'
 
@@ -186,7 +262,8 @@ class GazecodingHandler:
 
     @staticmethod
     def _side_to_hit(stimuli, sides):
-        targets = ['none' if s not in settings.target_aoi_location.keys() else settings.target_aoi_location[s] for s in stimuli]
+
+        targets = [settings.STIMULI[s]['target_aoi'] for s in stimuli]
         distractors = ['right' if t == 'left' else ('left' if t == 'right' else 'none') for t in targets]
         return ['target' if s == t else ('distractor' if s == d else 'none') for s, t, d in zip(sides, targets, distractors)]
 

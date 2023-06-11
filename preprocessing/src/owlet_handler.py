@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import pandas as pd
 
@@ -9,17 +10,25 @@ from .owlet_slim.owlet import OWLET
 
 class OWLETHandler(EyetrackingHandler):
 
-    LEFT_AOI = {'TOP_LEFT': (0, settings.STIMULUS_HEIGHT*0.34),
-                'BOTTOM_RIGHT': (settings.STIMULUS_WIDTH*0.45, settings.STIMULUS_HEIGHT)}
+    LEFT_AOI = {'TOP_LEFT': (0, settings.STIMULI['FAM_LL']['height']*0.34),
+                'BOTTOM_RIGHT': (settings.STIMULI['FAM_LL']['width']*0.45, settings.STIMULI['FAM_LL']['height'])}
 
-    RIGHT_AOI = {'TOP_LEFT': (settings.STIMULUS_WIDTH*0.55, settings.STIMULUS_HEIGHT*0.34),
-                 'BOTTOM_RIGHT': (settings.STIMULUS_WIDTH, settings.STIMULUS_HEIGHT)}
+    RIGHT_AOI = {'TOP_LEFT': (settings.STIMULI['FAM_LL']['width']*0.55, settings.STIMULI['FAM_LL']['height']*0.34),
+                 'BOTTOM_RIGHT': (settings.STIMULI['FAM_LL']['width'], settings.STIMULI['FAM_LL']['height'])}
 
-    def __init__(self, name, participants, dot_color, calibrate=True):
-        super().__init__(name, participants, dot_color)
+    def __init__(self, name, participants, general_exclusions, dot_color, calibrate=True):
+        super().__init__(name, participants, general_exclusions,  dot_color)
 
         self.calibrate = calibrate
         self.raw_dir = os.path.join(self.render_dir, 'raw_results')
+
+    def _automatically_exclude_specific(self, specific_exclusions):
+        """
+        Needs to be implemented by each child
+        :param specific_exclusions:
+        :return:
+        """
+        return specific_exclusions  # TODO implement this
 
     def _xy_to_aoi_vec(self, xv, yv):
 
@@ -39,25 +48,45 @@ class OWLETHandler(EyetrackingHandler):
 
     def _translate_coordinates_df(self, row):
 
-        x, y, outside = self._translate_coordinates(settings.STIMULUS_ASPECT_RATIO,
+        x, y, outside = self._translate_coordinates(settings.STIMULI[row['stimulus']]['width'] / settings.STIMULI[row['stimulus']]['height'],
                                                     row['window_height'],
                                                     row['window_width'],
-                                                    settings.STIMULUS_HEIGHT,
-                                                    settings.STIMULUS_WIDTH,
+                                                    settings.STIMULI[row['stimulus']]['height'],
+                                                    settings.STIMULI[row['stimulus']]['width'],
                                                     row["x"],
                                                     row["y"]
                                                     )
 
-        return pd.Series(dict(zip(['t', 'x', 'y', 'outside', 'calibration_failure'],
-                                  [row['t'], x, y, outside, row['calibration_failure']])))
+        return pd.Series(dict(zip(['t', 'x', 'y', 'outside', 'calibration_failure', 'stimulus'],
+                                  [row['t'], x, y, outside, row['calibration_failure'], row['stimulus']])))
 
-    def preprocess(self):
+    def _preprocess(self):
+
+        # Prepare videos by cropping webcam videos to owlets preferred
+        if not os.path.exists(settings.CROPPED_WEBCAM_MP4_DIR):
+            os.makedirs(settings.CROPPED_WEBCAM_MP4_DIR)
+
+        for p in self.participants:
+            for s in settings.stimuli:
+                webcam_path = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
+                cropped_webcam_path = f'{settings.CROPPED_WEBCAM_MP4_DIR}/{p}_{s}.mp4'
+                if os.path.isfile(webcam_path) and not os.path.isfile(cropped_webcam_path):
+                    subprocess.Popen(['ffmpeg', '-y',
+                                      '-i', webcam_path,
+                                      '-filter:v',
+                                      'crop=iw:9*iw/16',
+                                      cropped_webcam_path,
+                                      ]).wait()
+
         if not os.path.exists(self.raw_dir):
             os.makedirs(self.raw_dir)
 
         for p in self.participants:
             owlet = None
-            for s in settings.videos_relevant:
+            for s in settings.stimuli:
+
+                if not self._should_process_trial(p, s):
+                    continue
 
                 input_file = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
                 output_file_data = f'{self.raw_dir}/{p}_{s}.csv'
@@ -78,7 +107,7 @@ class OWLETHandler(EyetrackingHandler):
 
         df_list = []
         for p in self.participants:
-            for s in settings.videos_relevant:
+            for s in settings.stimuli:
                 data_file = f'{self.raw_dir}/{p}_{s}.csv'
                 if not os.path.isfile(data_file):
                     continue
@@ -86,13 +115,13 @@ class OWLETHandler(EyetrackingHandler):
                 data = pd.read_csv(data_file)
                 if not self.calibrate:
                     data['calibration_failure'] = False
+                data['stimulus'] = s
                 data = data.apply(self._translate_coordinates_df, axis=1)
 
                 data['id'] = p
-                data['stimulus'] = s
-                data['trial'] = settings.trial_order_indices[p.split("_")[-1]][s]
+                data['trial'] = settings.STIMULI[s][f'{p.split("_")[-1]}_index']
 
-                data['side'] = [None if x is None else ('left' if x < settings.STIMULUS_WIDTH / 2.0 else 'right') for x in data['x']]
+                data['side'] = [None if x is None else ('left' if x < settings.STIMULI[s]['width'] / 2.0 else 'right') for x in data['x']]
                 df_list.append(data)
 
         self.data = pd.concat(df_list)\

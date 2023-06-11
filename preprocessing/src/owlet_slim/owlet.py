@@ -72,6 +72,8 @@ class OWLET(object):
         while success:
             t = count * 1000 / fps
 
+            frame = cv2.resize(frame, (960, 540))  # test change ###############
+
             frame = self.determine_gaze(frame)
             # cv2.imshow("test", frame)
             # key = cv2.waitKey(100)
@@ -211,9 +213,9 @@ class OWLET(object):
         self.threshold = self.range_xvals/6
         if self.range_xvals < .1:
             self.threshold = .1/6
-        self.x_scale_value = self.presentation_width/(self.range_xvals * .9)
-        self.y_scale_value = self.presentation_height/(self.range_yvals * .8)
-        self.y_scale_value_left = self.presentation_height/(self.range_yvals_left * .8)
+        self.x_scale_value = self.presentation_width/(self.range_xvals* .9)
+        self.y_scale_value = self.presentation_height/(self.range_yvals* .8)
+        self.y_scale_value_left = self.presentation_height/(self.range_yvals_left* .8)
         self.y_scale_value_right = self.presentation_height/(self.range_yvals_right * .8)
         self.cur_x, self.prior_x = self.middle_x, self.middle_x
         self.prior_xright, self.prior_xleft = self.middle_x, self.middle_x
@@ -415,13 +417,28 @@ class OWLET(object):
 
         # if the baby has looked, get the current gaze point and put it on the frame
         if self.haslooked is True and (self.is_looking is True or self.num_looks_away < 3):
+            #print(f'------------------------------')
+            #print(f'cur_x: {cur_x}')
+            #print(f'min_xval: {self.min_xval}')
+            #print(f'self.x_scale_value: {self.x_scale_value}')
+            #print(f'self.presentation_width: {self.presentation_width}')
+            #print(f'int((cur_x - self.min_xval) * self.x_scale_value): {int((cur_x - self.min_xval) * self.x_scale_value)}')
+            #print(f'int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width: {int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width}')
+            #print(f'xcoords: {abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)}')
+            #print(f'------------------------------')
+
             xcoord = abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)
             ycoord_left = abs(int((cur_y_left - self.min_yval_left) * self.y_scale_value_left) - self.presentation_height)
             ycoord_right = abs(int((cur_y_right - self.min_yval_right) * self.y_scale_value_right) - self.presentation_height)
             ycoord = int((ycoord_left + ycoord_right) / 2)
 
+            #xcoord = self.presentation_width - int((cur_x - self.min_xval) * self.x_scale_value)
+            #ycoord_left = self.presentation_height - int((cur_y_left - self.min_yval_left) * self.y_scale_value_left)
+            #ycoord_right = self.presentation_height - int((cur_y_right - self.min_yval_right) * self.y_scale_value_right)
+            #ycoord = int((ycoord_left + ycoord_right) / 2)
+
             if ycoord < 0 or ycoord > self.presentation_height:
-                ycoord = abs(int((self.middle_y - self.min_yval) * self.y_scale_value) - self.presentation_height)
+                ycoord = abs(int((self.middle_y - self.min_yval) * self.y_scale_value) - self.presentation_height/2)
             if xcoord < 0 or xcoord > self.presentation_width:
                 self.text = "away"
             if self.text == "saccade":

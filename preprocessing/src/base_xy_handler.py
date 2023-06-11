@@ -9,10 +9,10 @@ from .base_handler import GazecodingHandler
 
 class EyetrackingHandler(GazecodingHandler):
 
-    def __init__(self, name, participants, dot_color):
-        super().__init__(name, participants)
+    def __init__(self, name, participants, general_exclusions, dot_color):
+        super().__init__(name, participants, general_exclusions)
 
-        self.dot_color = 0
+        self.dot_color = dot_color
 
     def _render_pre_loop(self, input_path, output_path, participant, stimulus):
 
@@ -39,19 +39,29 @@ class EyetrackingHandler(GazecodingHandler):
 
         if len(timepoint_data.index) > 0:
 
+            x_values_drawn = []
+            y_values_drawn = []
             for _, row in timepoint_data.iterrows():
                 if not row['outside']:
                     cv2.circle(frame, (int(row['x']), int(row['y'])), radius=10, color=self.dot_color, thickness=-1)
+                    x_values_drawn.append(row['x'])
+                    y_values_drawn.append(row['y'])
+
+            if len(x_values_drawn) == 0:
+                return
 
             cv2.circle(frame,
-                       (int(statistics.mean(timepoint_data['x'])),
-                        int(statistics.mean(timepoint_data['y']))),
+                       (int(statistics.mean(x_values_drawn)),
+                        int(statistics.mean(y_values_drawn))),
                        radius=15,
                        color=(0, 0, 255), thickness=-1)
 
+            if len(x_values_drawn) == 1:
+                return
+
             cv2.ellipse(frame,
-                        (int(statistics.mean(timepoint_data['x'])), int(statistics.mean(timepoint_data['y']))),
-                        (int(statistics.stdev(timepoint_data['x'])), int(statistics.stdev(timepoint_data['y']))), 0.,
+                        (int(statistics.mean(x_values_drawn)), int(statistics.mean(y_values_drawn))),
+                        (int(statistics.stdev(x_values_drawn)), int(statistics.stdev(y_values_drawn))), 0.,
                         0., 360,
                         (255, 255, 255), thickness=3)
 
