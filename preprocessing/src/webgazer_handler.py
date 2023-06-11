@@ -108,9 +108,15 @@ class WebGazerHandler(EyetrackingHandler):
         super(WebGazerHandler, self)._save_data()
         self.data_validation.to_csv(f'{settings.OUT_DIR}/{self.name}_validation.csv', encoding='utf-8', index=False)
 
-    @staticmethod
-    def _append_validation_data(df_dict_list, data, participant):
+    def _append_validation_data(self, df_dict_list, data, participant):
         # a hacky addition to allow for simple analysis of jspsych webgazer validation trials
+
+        # check if both validation trials were deemed usable
+        if len(self.general_exclusions[(self.general_exclusions['id'] == participant) &
+                                       (self.general_exclusions['excluded'] != 'x') &
+                                       ((self.general_exclusions['stimulus'] == 'validation1') | (self.general_exclusions['stimulus'] == 'validation2'))
+               ].reset_index(drop=True).index) != 2:
+            return
 
         data_validation = [x for x in data if 'trial_type' in x and x['trial_type'] == 'webgazer-validate']
 
