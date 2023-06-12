@@ -1,4 +1,10 @@
 """
+
+Currently unused.
+I broke this while refactoring and created behavior that differed from the original eyetracking algorithm.
+For now, the program uses the nearly unchanged calibration_og.py.
+
+
 Created by Denise Werchan, 2022
 Modified by Adrian Steffan, 2023
 
@@ -51,6 +57,8 @@ class LookingCalibration(object):
         while success:
 
             self.timestamp = video.get(cv2.CAP_PROP_POS_MSEC)
+
+            frame = cv2.resize(frame, (960, 540))
 
             # We send this frame to GazeTracking to analyze it
             self.gaze.refresh(frame)

@@ -1,6 +1,11 @@
 venv/
 output/
 data/
-.idea/
+exclusion/
+
+
+src/OWLET-main
+
 
 __pycache__/
+.idea/

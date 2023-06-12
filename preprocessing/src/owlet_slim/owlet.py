@@ -22,8 +22,8 @@ import cv2
 import pandas as pd
 
 from .gaze_tracking import GazeTracking
-from ..owlet_original.calibration import LookingCalibration
-
+from .calibration_og import LookingCalibration
+#from .calibration import LookingCalibration
 
 class OWLET(object):
 
@@ -113,9 +113,8 @@ class OWLET(object):
         # This try-catch block is a temporary hack - the original implementation crashes for certain calibration video
         # properties. Use an additional variable to mark participants whether the calibration was successful
         try:
-            #calib = LookingCalibration(show_output)
+
             calib = LookingCalibration(show_output, os.getcwd())
-            #calib.calibrate_eyes(calib_file)
             calib.calibrate_eyes(calib_file, 0)
             self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor()
             self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
@@ -127,6 +126,9 @@ class OWLET(object):
             self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = calib.get_eye_area_ratio()
             self.length = calib.get_avg_length()
 
+            ## This code was targetting the refactored version of the calibration - exchange with code above in case I come around to fixing the calibration
+            #calib = LookingCalibration(show_output)
+            #calib.calibrate_eyes(calib_file)
             #self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor(1)
             #self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
             #    self.range_yvals_right, self.min_yval_left, self.min_yval_right = calib.get_min_max_ver()
@@ -136,10 +138,10 @@ class OWLET(object):
             #self.eyearea = calib.get_eye_area()
             #self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = calib.get_eye_area_ratio()
             #self.length = calib.get_avg_length()
+
             self.calibration_failure = False
         except Exception as e:
-            #print(e)
-            #exit()
+
             print("Calibration Failure")
             self.calibration_failure = True
             self.min_xval, self.max_xval, self.range_xvals, self.middle_x = .5, .8, .3, .65
@@ -433,25 +435,21 @@ class OWLET(object):
 
         # if the baby has looked, get the current gaze point and put it on the frame
         if self.haslooked is True and (self.is_looking is True or self.num_looks_away < 3):
-            #print(f'------------------------------')
-            #print(f'cur_x: {cur_x}')
-            #print(f'min_xval: {self.min_xval}')
-            #print(f'self.x_scale_value: {self.x_scale_value}')
-            #print(f'self.presentation_width: {self.presentation_width}')
-            #print(f'int((cur_x - self.min_xval) * self.x_scale_value): {int((cur_x - self.min_xval) * self.x_scale_value)}')
-            #print(f'int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width: {int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width}')
-            #print(f'xcoords: {abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)}')
-            #print(f'------------------------------')
 
-            #xcoord = abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)
-            #ycoord_left = abs(int((cur_y_left - self.min_yval_left) * self.y_scale_value_left) - self.presentation_height)
-            #ycoord_right = abs(int((cur_y_right - self.min_yval_right) * self.y_scale_value_right) - self.presentation_height)
-            #ycoord = int((ycoord_left + ycoord_right) / 2)
-
-            xcoord = self.presentation_width - int((cur_x - self.min_xval) * self.x_scale_value)
-            ycoord_left = self.presentation_height - int((cur_y_left - self.min_yval_left) * self.y_scale_value_left)
-            ycoord_right = self.presentation_height - int((cur_y_right - self.min_yval_right) * self.y_scale_value_right)
+            xcoord = abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)
+            ycoord_left = abs(int((cur_y_left - self.min_yval_left) * self.y_scale_value_left) - self.presentation_height)
+            ycoord_right = abs(int((cur_y_right - self.min_yval_right) * self.y_scale_value_right) - self.presentation_height)
             ycoord = int((ycoord_left + ycoord_right) / 2)
+
+            # The experimental code below tried to replace the scaling performed above.
+            # It does not improve the overall tracking quality, but the scaling that comes with OWLET seems strange,
+            # as it can produce values > screenwidth but cannot produce values < 0.
+            # I should probably have another look at this.
+
+            #xcoord = self.presentation_width - int((cur_x - self.min_xval) * self.x_scale_value)
+            #ycoord_left = self.presentation_height - int((cur_y_left - self.min_yval_left) * self.y_scale_value_left)
+            #ycoord_right = self.presentation_height - int((cur_y_right - self.min_yval_right) * self.y_scale_value_right)
+            #ycoord = int((ycoord_left + ycoord_right) / 2)
 
             if ycoord < 0 or ycoord > self.presentation_height:
                 ycoord = abs(int((self.middle_y - self.min_yval) * self.y_scale_value) - self.presentation_height/2)

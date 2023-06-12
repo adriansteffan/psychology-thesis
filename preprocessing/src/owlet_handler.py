@@ -7,6 +7,16 @@ import settings
 from .base_xy_handler import EyetrackingHandler
 from .owlet_slim.owlet import OWLET
 
+# TODO
+"""
+TODO: Owlet currently assumes that all presented screens were 16:9 and does its scaling accordingly.
+To make the resulting data more accurate, this needs to be adjusted to the screen. 
+The preprocessing already exports a file containing that information for each participant.
+
+TODO: The current calibration placeholder only supports a hardcoded framerate for calibration videos.
+Fix the refactored version - as that one supports an arbitrary framerate.
+"""
+
 
 class OWLETHandler(EyetrackingHandler):
 
@@ -26,6 +36,7 @@ class OWLETHandler(EyetrackingHandler):
         parent_functions = super()._get_exclusion_functions()
 
         # TODO no screen size data present
+        # In the LMU data set. participant Nr. 815 should be affected
 
         owlet_exclusion_functions = []
         if self.calibrate:
