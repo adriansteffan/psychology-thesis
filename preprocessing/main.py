@@ -12,7 +12,7 @@ from src import utils
 from src.icatcher_handler import ICatcherHandler
 from src.webgazer_handler import WebGazerHandler
 from src.owlet_handler import OWLETHandler
-#from src.owlet_original_handler import OWLETHandlerOG
+from src.owlet_original_handler import OWLETHandlerOG
 
 
 def main():
@@ -53,20 +53,22 @@ def main():
         exclusion_df.to_csv(exclusion_path, encoding='utf-8', index=False)
         return
 
-    icatcher = ICatcherHandler(settings.GAZECODER_NAMES['ICATCHER'], participants, general_exclusions)
-    webgazer = WebGazerHandler(settings.GAZECODER_NAMES['WEBGAZER'], participants, general_exclusions, dot_color=(255, 0, 0))
-    #owlet_nocalib = OWLETHandler(settings.GAZECODER_NAMES['OWLET_NAMES'], participants, general_exclusions, dot_color=(0, 255, 0), calibrate=False)
-    #owlet = OWLETHandler(settings.GAZECODER_NAMES['OWLET'], participants, general_exclusions, dot_color=(255, 255, 0), calibrate=True)#
+    #icatcher = ICatcherHandler(settings.GAZECODER_NAMES['ICATCHER'], participants, general_exclusions)
+    #webgazer = WebGazerHandler(settings.GAZECODER_NAMES['WEBGAZER'], participants, general_exclusions, dot_color=(255, 0, 0))
+    #owlet_nocalib = OWLETHandler(settings.GAZECODER_NAMES['OWLET_NOCALIB'], participants, general_exclusions, dot_color=(0, 255, 0), calibrate=False)
+    owlet = OWLETHandler(settings.GAZECODER_NAMES['OWLET'], participants, general_exclusions, dot_color=(255, 255, 0), calibrate=True)#
 
     #owlet_original_nocalib = OWLETHandlerOG('owlet_og_nocalib', participants, general_exclusions, dot_color=(0, 255, 0), calibrate=False)
-    #owlet_original = OWLETHandlerOG('owlet_og', participants, general_exclusions, dot_color=(0, 255, 0), calibrate=True)
+    owlet_original = OWLETHandlerOG('owlet_og', participants, general_exclusions, dot_color=(0, 255, 0), calibrate=True)
 
-    #owlet_original_nocalib.run(settings.RENDER_OWLET_NOCALIB)
-    #owlet_original.run(settings.RENDER_OWLET_NOCALIB)
-    icatcher.run(step=args.step, should_render=settings.RENDER_ICATCHER)
-    webgazer.run(step=args.step, should_render=settings.RENDER_WEBGAZER)
     #owlet_nocalib.run(step=args.step, should_render=settings.RENDER_OWLET_NOCALIB)
-    #owlet.run(step=args.step, should_render=settings.RENDER_OWLET)
+    #owlet_original_nocalib.run(step=args.step, should_render=settings.RENDER_OWLET_NOCALIB)
+    owlet.run(step=args.step, should_render=settings.RENDER_OWLET)
+    owlet_original.run(step=args.step, should_render=settings.RENDER_OWLET_NOCALIB)
+    #icatcher.run(step=args.step, should_render=settings.RENDER_ICATCHER)
+    #webgazer.run(step=args.step, should_render=settings.RENDER_WEBGAZER)
+
+
 
 
 def get_participants():
@@ -124,6 +126,7 @@ def prepare_data(participants, render_webcam_videos):
                 input_file = f'{settings.DATA_DIR}/{p}_{s}.webm'
                 temp_file = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}_temp.mp4'
                 output_file = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
+
                 if os.path.isfile(input_file) and not os.path.isfile(output_file):
 
                     subprocess.Popen(['ffmpeg', '-y',

@@ -12,7 +12,7 @@ def create_empty_general_exclusion_df(participants):
     return exclusion_df
 
 
-def validate_exclusions(exclusion_df, name):
+def validate_exclusions(exclusion_df, name, strict=True):
 
     # check that each participant x stimulus combination only appears once
     if len(exclusion_df.loc[exclusion_df.duplicated(subset=['id', 'stimulus'], keep=False)].index) != 0:
@@ -29,5 +29,5 @@ def validate_exclusions(exclusion_df, name):
         elif row['excluded'] == 'x':
             if not row['exclusion_reason'] or pd.isna(row['exclusion_reason']) or row['exclusion_reason'] == '':
                 exit(f'{ERROR_START}{i+1}: No exclusion reason provided')
-        else:
+        elif strict:
             exit(f'{ERROR_START}{i+1}: Excluded can only have values i or x')

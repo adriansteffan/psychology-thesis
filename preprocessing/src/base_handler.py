@@ -40,7 +40,7 @@ class GazecodingHandler:
                     exit(f'Specific exclusion file  at {self.specific_exclusions_path} already exists. '
                          f'To make sure that you are not accidentally overwriting it, please remove it first.')
                 specific_exclusions = pd.read_csv(self.specific_exclusions_path)
-                utils.validate_exclusions(specific_exclusions, self.specific_exclusions_path)
+                utils.validate_exclusions(specific_exclusions, self.specific_exclusions_path, strict=step)
             else:
                 specific_exclusions = self.general_exclusions[(self.general_exclusions['excluded'] != 'x') & (~self.general_exclusions['stimulus'].isin(self.stimulus_blacklist))].reset_index(drop=True)
                 specific_exclusions['excluded'] = ''
@@ -55,11 +55,11 @@ class GazecodingHandler:
                 for _, row in included_so_far.iterrows():
                     if row['stimulus'] in self.stimulus_blacklist:
                         continue
-                    pass  # self._render(row['id'], row['stimulus'])
+                    #self._render(row['id'], row['stimulus'])
 
         if not step or step == 3:
 
-            self._filter_data()
+            self._filter_data(step)
             self._resample_data()
 
             if should_render:
@@ -99,9 +99,9 @@ class GazecodingHandler:
         return pd.concat(exclusion_tables + [general_exclusions]).drop_duplicates(subset=['id', 'stimulus'],
                                                                       keep="first").reset_index(drop=True)
 
-    def _filter_data(self):
+    def _filter_data(self, step):
         specific_exclusions = pd.read_csv(self.specific_exclusions_path)
-        utils.validate_exclusions(specific_exclusions, self.specific_exclusions_path)
+        utils.validate_exclusions(specific_exclusions, self.specific_exclusions_path, strict=step and step == 3)
         exclusions_all = pd.concat([specific_exclusions, self.general_exclusions])
         excluded = exclusions_all[(exclusions_all['excluded'] == 'x') & (~exclusions_all['stimulus'].isin(self.stimulus_blacklist))].reset_index(drop=True)
         self.data = pd.merge(self.data, excluded, on=['id', 'stimulus'], how='outer')

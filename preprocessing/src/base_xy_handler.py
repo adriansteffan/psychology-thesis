@@ -51,8 +51,8 @@ class EyetrackingHandler(GazecodingHandler):
                 return
 
             cv2.circle(frame,
-                       (int(statistics.mean(x_values_drawn)),
-                        int(statistics.mean(y_values_drawn))),
+                       (int(statistics.median(x_values_drawn)),
+                        int(statistics.median(y_values_drawn))),
                        radius=15,
                        color=(0, 0, 255), thickness=-1)
 
@@ -60,7 +60,7 @@ class EyetrackingHandler(GazecodingHandler):
                 return
 
             cv2.ellipse(frame,
-                        (int(statistics.mean(x_values_drawn)), int(statistics.mean(y_values_drawn))),
+                        (int(statistics.median(x_values_drawn)), int(statistics.median(y_values_drawn))),
                         (int(statistics.stdev(x_values_drawn)), int(statistics.stdev(y_values_drawn))), 0.,
                         0., 360,
                         (255, 255, 255), thickness=3)

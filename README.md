@@ -129,10 +129,16 @@ in the `preprocessing` directory. The output of this operation is dependent on t
 
 
 
-
 ### Analysis
 
-TBD
+1. Run the preprocessing for ICatcher and WebGazer
+
+2. Unzip `inlab_data.csv.zip` in `analysis/`
+
+3. Install the packages listed at the top of `main.R` (fancy versioning is probably not needed since these are pretty basic)
+
+4. Run `main.R` using [RStudio](https://posit.co/download/rstudio-desktop/)
+
 
 ## Built with
 

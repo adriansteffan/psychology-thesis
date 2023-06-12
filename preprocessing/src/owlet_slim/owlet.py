@@ -16,11 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import os
+
 import cv2
 import pandas as pd
 
 from .gaze_tracking import GazeTracking
-from .calibration import LookingCalibration
+from ..owlet_original.calibration import LookingCalibration
 
 
 class OWLET(object):
@@ -111,19 +113,33 @@ class OWLET(object):
         # This try-catch block is a temporary hack - the original implementation crashes for certain calibration video
         # properties. Use an additional variable to mark participants whether the calibration was successful
         try:
-            calib = LookingCalibration(show_output)
-            calib.calibrate_eyes(calib_file)
-            self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor(1)
+            #calib = LookingCalibration(show_output)
+            calib = LookingCalibration(show_output, os.getcwd())
+            #calib.calibrate_eyes(calib_file)
+            calib.calibrate_eyes(calib_file, 0)
+            self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor()
             self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
-                self.range_yvals_right, self.min_yval_left, self.min_yval_right = calib.get_min_max_ver()
+            self.range_yvals_right, self.min_yval_left, self.min_yval_right = calib.get_min_max_ver()
 
-            self.min_xval2, self.max_xval2, self.range_xvals2, self.middle_x2 = calib.get_min_max_hor(2)
+            self.min_xval2, self.max_xval2, self.range_xvals2, self.middle_x2 = calib.get_min_max_hor2()
             self.mean, self.maximum, self.minimum = calib.get_eye_ratio()
             self.eyearea = calib.get_eye_area()
             self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = calib.get_eye_area_ratio()
             self.length = calib.get_avg_length()
+
+            #self.min_xval, self.max_xval, self.range_xvals, self.middle_x = calib.get_min_max_hor(1)
+            #self.min_yval, self.max_yval, self.range_yvals, self.middle_y, self.range_yvals_left, \
+            #    self.range_yvals_right, self.min_yval_left, self.min_yval_right = calib.get_min_max_ver()
+
+            #self.min_xval2, self.max_xval2, self.range_xvals2, self.middle_x2 = calib.get_min_max_hor(2)
+            #self.mean, self.maximum, self.minimum = calib.get_eye_ratio()
+            #self.eyearea = calib.get_eye_area()
+            #self.mean_eyeratio, self.maxeyeratio, self.mineyeratio = calib.get_eye_area_ratio()
+            #self.length = calib.get_avg_length()
             self.calibration_failure = False
-        except Exception:
+        except Exception as e:
+            #print(e)
+            #exit()
             print("Calibration Failure")
             self.calibration_failure = True
             self.min_xval, self.max_xval, self.range_xvals, self.middle_x = .5, .8, .3, .65
@@ -427,15 +443,15 @@ class OWLET(object):
             #print(f'xcoords: {abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)}')
             #print(f'------------------------------')
 
-            xcoord = abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)
-            ycoord_left = abs(int((cur_y_left - self.min_yval_left) * self.y_scale_value_left) - self.presentation_height)
-            ycoord_right = abs(int((cur_y_right - self.min_yval_right) * self.y_scale_value_right) - self.presentation_height)
-            ycoord = int((ycoord_left + ycoord_right) / 2)
-
-            #xcoord = self.presentation_width - int((cur_x - self.min_xval) * self.x_scale_value)
-            #ycoord_left = self.presentation_height - int((cur_y_left - self.min_yval_left) * self.y_scale_value_left)
-            #ycoord_right = self.presentation_height - int((cur_y_right - self.min_yval_right) * self.y_scale_value_right)
+            #xcoord = abs(int((cur_x - self.min_xval) * self.x_scale_value) - self.presentation_width)
+            #ycoord_left = abs(int((cur_y_left - self.min_yval_left) * self.y_scale_value_left) - self.presentation_height)
+            #ycoord_right = abs(int((cur_y_right - self.min_yval_right) * self.y_scale_value_right) - self.presentation_height)
             #ycoord = int((ycoord_left + ycoord_right) / 2)
+
+            xcoord = self.presentation_width - int((cur_x - self.min_xval) * self.x_scale_value)
+            ycoord_left = self.presentation_height - int((cur_y_left - self.min_yval_left) * self.y_scale_value_left)
+            ycoord_right = self.presentation_height - int((cur_y_right - self.min_yval_right) * self.y_scale_value_right)
+            ycoord = int((ycoord_left + ycoord_right) / 2)
 
             if ycoord < 0 or ycoord > self.presentation_height:
                 ycoord = abs(int((self.middle_y - self.min_yval) * self.y_scale_value) - self.presentation_height/2)

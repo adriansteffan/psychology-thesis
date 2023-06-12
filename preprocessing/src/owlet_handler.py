@@ -22,13 +22,25 @@ class OWLETHandler(EyetrackingHandler):
         self.calibrate = calibrate
         self.raw_dir = os.path.join(self.render_dir, 'raw_results')
 
-    def _automatically_exclude_specific(self, specific_exclusions):
-        """
-        Needs to be implemented by each child
-        :param specific_exclusions:
-        :return:
-        """
-        return specific_exclusions  # TODO implement this
+    def _get_exclusion_functions(self):
+        parent_functions = super()._get_exclusion_functions()
+
+        # TODO no screen size data present
+
+        owlet_exclusion_functions = []
+        if self.calibrate:
+            def exclude_no_calib(data):
+                return self.general_exclusions[(self.general_exclusions['excluded'] == 'x') & (self.general_exclusions['stimulus'] == 'calibration')][
+                    ['id']].drop_duplicates(keep='first').reset_index(drop=True).merge(pd.DataFrame({'stimulus': list(set(settings.stimuli) - set(settings.STIMULUS_BLACKLIST[self.name]))}), how='cross')
+
+            def exclude_calib_failed(data):
+                exclude_tracking = data[data['calibration_failure']][
+                    ['id', 'stimulus']].drop_duplicates(keep='first').reset_index(drop=True)
+                return exclude_tracking
+
+            owlet_exclusion_functions += [(exclude_no_calib, '_no_calib_owlet'), (exclude_calib_failed, '_calib_failed_ow')]
+
+        return parent_functions + owlet_exclusion_functions
 
     def _xy_to_aoi_vec(self, xv, yv):
 
@@ -66,17 +78,18 @@ class OWLETHandler(EyetrackingHandler):
         if not os.path.exists(settings.CROPPED_WEBCAM_MP4_DIR):
             os.makedirs(settings.CROPPED_WEBCAM_MP4_DIR)
 
-        for p in self.participants:
-            for s in settings.stimuli:
-                webcam_path = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
-                cropped_webcam_path = f'{settings.CROPPED_WEBCAM_MP4_DIR}/{p}_{s}.mp4'
-                if os.path.isfile(webcam_path) and not os.path.isfile(cropped_webcam_path):
-                    subprocess.Popen(['ffmpeg', '-y',
-                                      '-i', webcam_path,
-                                      '-filter:v',
-                                      'crop=iw:9*iw/16',
-                                      cropped_webcam_path,
-                                      ]).wait()
+        if settings.RENDER_WEBCAM_VIDEOS_16_9:
+            for p in self.participants:
+                for s in settings.stimuli:
+                    webcam_path = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
+                    cropped_webcam_path = f'{settings.CROPPED_WEBCAM_MP4_DIR}/{p}_{s}.mp4'
+                    if os.path.isfile(webcam_path) and not os.path.isfile(cropped_webcam_path):
+                        subprocess.Popen(['ffmpeg', '-y',
+                                          '-i', webcam_path,
+                                          '-filter:v',
+                                          'crop=iw:9*iw/16',
+                                          cropped_webcam_path,
+                                          ]).wait()
 
         if not os.path.exists(self.raw_dir):
             os.makedirs(self.raw_dir)
@@ -88,14 +101,14 @@ class OWLETHandler(EyetrackingHandler):
                 if not self._should_process_trial(p, s):
                     continue
 
-                input_file = f'{settings.WEBCAM_MP4_DIR}/{p}_{s}.mp4'
+                input_file = f'{settings.CROPPED_WEBCAM_MP4_DIR}/{p}_{s}.mp4'
                 output_file_data = f'{self.raw_dir}/{p}_{s}.csv'
                 if os.path.isfile(input_file) and not os.path.isfile(output_file_data):
 
                     if owlet is None:
                         owlet = OWLET(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
                         if self.calibrate:
-                            calibration_file = f'{settings.WEBCAM_MP4_DIR}/{p}_calibration.mp4'
+                            calibration_file = f'{settings.CROPPED_WEBCAM_MP4_DIR}/{p}_calibration.mp4'
                             if not os.path.isfile(calibration_file):
                                 print(f'No calibration file found for {p}, skipping')
                                 break
@@ -116,6 +129,8 @@ class OWLETHandler(EyetrackingHandler):
                 if not self.calibrate:
                     data['calibration_failure'] = False
                 data['stimulus'] = s
+                data['window_height'] = 540
+                data['window_width'] = 960
                 data = data.apply(self._translate_coordinates_df, axis=1)
 
                 data['id'] = p
