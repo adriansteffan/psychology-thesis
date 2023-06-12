@@ -143,7 +143,7 @@ then
 
 3. Install the packages listed at the top of `main.R` (fancy versioning is probably not needed since these are commonly used)
 
-4. Run `main.R` using [RStudio](https://posit.co/download/rstudio-desktop/)
+4. Run `main.Rmd` using [RStudio](https://posit.co/download/rstudio-desktop/)
 
 
 ## Built with
