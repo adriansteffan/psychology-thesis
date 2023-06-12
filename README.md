@@ -135,7 +135,7 @@ in the `preprocessing` directory. The output of this operation is dependent on t
 
 or 
 
-1. Rename `output_example` and `exclusion_example` to `output` and `exclusion` (provided data)
+1. Rename `output_example` and `exclusion_example` to `output` and `exclusion` in the preprocessing folder (provided data)
 
 then
 

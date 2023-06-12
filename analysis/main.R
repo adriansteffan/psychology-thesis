@@ -11,26 +11,39 @@ EXCLUSION_DIR <- file.path(PREPROCESSING_PATH, "exclusion")
 
 inlab <- read.csv('inlab_data.csv', stringsAsFactors = TRUE)
 
-general_exclusions <- read.csv(file.path(EXCLUSION_DIR, '_exclusions_general.csv'))
+general_exclusions <- read.csv(file.path(EXCLUSION_DIR, '_exclusions_general.csv')) %>% mutate(id = str_remove(id, "_B"),
+                                                                                              id = str_remove(id, "_A"))
 
 webgazer <- read.csv(file.path(DATA_DIR, 'webgazer_data.csv'))
 webgazer_resampled <- read.csv(file.path(DATA_DIR, 'webgazer_RESAMPLED_data.csv'))
 webgazer_validate <- read.csv(file.path(DATA_DIR, 'webgazer_validation.csv'))
-webgazer_exclusions <- read.csv(file.path(EXCLUSION_DIR, 'exclusions_webgazer.csv'))
+webgazer_exclusions <- read.csv(file.path(EXCLUSION_DIR, 'exclusions_webgazer.csv')) %>% mutate(id = str_remove(id, "_B"),
+                                                                                                id = str_remove(id, "_A"))
 
 icatcher <- read.csv(file.path(DATA_DIR, 'icatcher_data.csv'))
 icatcher_resampled <- read.csv(file.path(DATA_DIR, 'icatcher_RESAMPLED_data.csv'))
-icatcher_exclusions <- read.csv(file.path(EXCLUSION_DIR, 'exclusions_icatcher.csv'))
+icatcher_exclusions <- read.csv(file.path(EXCLUSION_DIR, 'exclusions_icatcher.csv')) %>% mutate(id = str_remove(id, "_B"),
+                                                                                                id = str_remove(id, "_A"))
 
 icatcher_validate <- icatcher %>% filter(stimulus == 'calibration')
 icatcher_data <- icatcher %>% filter(stimulus != 'calibration')
 icatcher_data_resampled <- icatcher_resampled %>% filter(stimulus != 'calibration')
 
+demographic_data <- read.csv('demographic_data.csv', stringsAsFactors = F)
 
-# TODO: describe sample
+# Check if the participants missing from the demo file were excluded anyway
+stopifnot(
+  nrow(
+    general_exclusions %>%
+      full_join(demographic_data 
+            %>% rename(id=subid)
+            ) %>% 
+      filter(is.na(lab) & excluded =='i')
+    ) == 0)
+
+
 # TODO: turn into rmd 
-# mutate(id = str_remove(id, "_B"),
-# id = str_remove(id, "_A"))%>%
+
 
 #####################
 # Exclusion reporting
@@ -48,7 +61,7 @@ apply_exclusion_reason = function(df, reason){
   return(next_df)
 }
 
-print_exclusions_for_tracker = function(name, df, reasons){
+apply_exclusions_for_tracker = function(name, df, reasons){
   exclusions_trials <- df %>% filter(stimulus != 'validation1' & stimulus != 'validation2' & stimulus != 'calibration')
   print(sprintf("%s EXCLUSIONS:", name))
   for(reason in reasons){
@@ -57,14 +70,74 @@ print_exclusions_for_tracker = function(name, df, reasons){
   print(sprintf("Remaining participants for %s: %i", name, length(unique(exclusions_trials$id))))
   print(sprintf("Remaining trials for %s: %i", name, nrow(exclusions_trials)))
   print('------')
+  return(exclusions_trials)
 }
 
 # Total number of participants
 length(unique(general_exclusions$id))
 
-print_exclusions_for_tracker('GENERAL',general_exclusions,c('all_age', 'all_preterm', 'all_nonormalseeing', 'all_experimentererror', 'all_nodata', 'nodata', 'unattentive'))
-print_exclusions_for_tracker('WEBGAZER',webgazer_exclusions,c('_low_sampling_wg', '_no_tracker_data', 'parentgaze_wg', 'tracking_wg'))
-print_exclusions_for_tracker('ICATCHER',icatcher_exclusions,c('wrongwebcam_ic', 'noface_ic'))
+included_general <- apply_exclusions_for_tracker('GENERAL',general_exclusions,c('all_age', 'all_preterm', 'all_nonormalseeing', 'all_experimentererror', 'all_nodata', 'nodata', 'unattentive'))
+included_webgazer <- apply_exclusions_for_tracker('WEBGAZER',webgazer_exclusions,c('_low_sampling_wg', '_no_tracker_data', 'parentgaze_wg', 'tracking_wg'))
+included_icatcher <- apply_exclusions_for_tracker('ICATCHER',icatcher_exclusions,c('wrongwebcam_ic', 'noface_ic'))
+
+
+#####################
+# Sample description for webcam data
+#####################
+
+report_demographic <- function (demo, name, included){
+  print(sprintf('Demographic data for %s', name))
+  View(demo)
+  demo <- demo %>% filter(subid %in% unique(included$id))
+  
+  ## age in months
+  demo$age_days <- demo$age
+  demo$age_months <- demo$age/30.5
+  
+  print(sprintf('Girls n=%i', sum(demo$participant_gender == "girl")))
+  print(sprintf('Boys n=%i', sum(demo$participant_gender == "boy")))
+  
+  print('Residence Country')
+  print(summary(demo$residence_country))
+  
+  print('Age Range in Days')
+  print(sprintf('Mean %f', mean(demo$age_days, na.rm = TRUE)))
+  print(sprintf('SD %f', sd(demo$age_days, na.rm = TRUE)))
+  print(summary(demo$age_days))
+  
+  print(sprintf('%f percent go to daycare', (100*sum(demo$daycare=='yes')/length(demo$daycare))))
+  print(sprintf('for an average of %f hours per week', mean(as.numeric(demo$hours_week_daycare), na.rm = T)))
+  
+  # this could be cleaner, but there is no need to scale this function up to n siblings
+  siblings_3 = (100*sum(!is.na(demo$sib3_age))/length(demo$sib3_age))
+  siblings_2 = (100*sum(!is.na(demo$sib2_age))/length(demo$sib2_age)) - siblings_3
+  siblings_1 = (100*sum(!is.na(demo$sib1_age))/length(demo$sib1_age)) - siblings_2
+  print(sprintf('%f percent have no siblings', 100 - siblings_3 - siblings_2 - siblings_1))
+  print(sprintf('%f percent have one sibling', siblings_1))
+  print(sprintf('%f percent have two siblings', siblings_2))
+  print(sprintf('%f percent have three siblings', siblings_3))
+  
+  # again, this could be cleaner, but there is no need to scale this function up to n languages
+  languages_3 = (100*sum(!is.na(demo$lang3))/length(demo$lang3))
+  languages_2 = (100*sum(!is.na(demo$lang2))/length(demo$lang2)) - languages_3
+  languages_1 = (100*sum(!is.na(demo$lang1))/length(demo$lang1)) - languages_2
+  print(sprintf('%f percent live with one language', languages_1))
+  print(sprintf('%f percent live with two languages', languages_2))
+  print(sprintf('%f percent live with three languages', languages_3))
+  
+  demo <- demo %>% mutate(max_parent_education = pmax(parentA_education, parentB_education, na.rm=T))
+  # parent education (years and quality)
+  print(sprintf('%f percent have a bachelors equivalent or better', (100*sum(demo$max_parent_education >= 16)/length(demo$max_parent_education))))
+  print(sprintf('Higher educated parent went through an average of %f years of education', mean(demo$max_parent_education, na.rm=T)))
+ 
+}
+
+demographic_data$parentA_education <- as.numeric(demographic_data$parentA_education)
+demographic_data$parentB_education <- as.numeric(demographic_data$parentB_education)
+
+report_demographic(demographic_data, 'GENERAL', included_general)
+report_demographic(demographic_data, 'WEBGAZER', included_webgazer)
+report_demographic(demographic_data, 'ICATCHER', included_icatcher)
 
 
 #################
@@ -138,8 +211,36 @@ data <- full_data_by_participant %>%
   mutate(method = factor(method, levels = c("webgazer_aoi", "icatcher", "inlab")))
 
 
-#table(icatcher_ls_crit$by_trial$stimulus)
- 
+###########################
+# Descriptive Statistics
+#########################
+
+## Included Trials
+table(icatcher_ls_crit$by_trial$stimulus)
+table(webgazer_aoi_ls_crit$by_trial$stimulus)
+table(inlab_ls_by_trial$stimulus)
+
+## Looking Scores
+# General
+
+mean(webgazer_aoi_ls_crit$by_participant$lookingscore)
+mean(icatcher_ls_crit$by_participant$lookingscore)
+mean(inlab_ls_by_participant$lookingscore)
+
+# per stimuls
+
+print(full_data %>% group_by(method, stimulus) %>% summarise(lookingscore = mean(lookingscore)) %>% spread(key = method, value = lookingscore))
+
+## Bias in icatcher
+icatcher_bias <- icatcher_data_resampled %>% filter(look == 'left' | look == 'right') %>%  mutate(look = ifelse(look=='right', 1, 0))
+mean(icatcher_bias$look)
+print(t.test(icatcher_bias$look, mu = 0.5, alternative = "two.sided"))
+
+left_leaning_icatcher_trials <- sum((icatcher_ls_crit$by_trial$stimulus == 'FAM_LL') | (icatcher_ls_crit$by_trial$stimulus == 'FAM_RL'))
+right_leaning_icatcher_trials <- sum((icatcher_ls_crit$by_trial$stimulus == 'FAM_LR') | (icatcher_ls_crit$by_trial$stimulus == 'FAM_RR'))
+
+right_leaning_icatcher_trials/(right_leaning_icatcher_trials + left_leaning_icatcher_trials)
+
 ###########################
 # Confirmatory Analyses
 #########################
@@ -191,7 +292,7 @@ agreement_raw <- agreement_raw %>% na.omit()
 agreement_raw_after_critical_start <- agreement_raw %>% filter(CRITICAL_TIMEFRAME_START_MS <= t)
 
 # exclude timepoints where icatcher did not decide on a side
-agreement_after_critical_start <- agreement_raw_after_critical_start %>%  filter(side_ic != 'none' & side_ic != 'away' & side_ic != 'nobabyface' & side_ic != 'noface')
+agreement_after_critical_start <- agreement_raw_after_critical_start %>%  filter(side_ic == 'left' | side_ic == 'right')
 
 
 # how much general agreement?
@@ -313,6 +414,3 @@ H2.plot <- ggplot(data, aes(x = method, y = lookingscore, colour = method, fill 
   theme_classic()
 
 print(H2.plot)
-
-
-
