@@ -2,10 +2,10 @@
 
 This repository contains the code for my bachelor's thesis at LMU's Chair of Clinical Psychology in Childhood and Adolescence (Lehr- und Forschungseinheit Klinische Psychologie des Kindes- und Jugendalters & Beratungspsychologie). The thesis aims to validate and compare currently available open-source approaches to automatic gaze-coding and eye-tracking in infant research.
 
-The code in this repository offers more streamlined preprocessing on the data created by [MB-ManyWebcams](https://github.com/adriansteffan/manywebcams-eyetracking) and analyzes the captured webcam footage with both [ICatcher+](https://github.com/erelyotam/icatcher_plus) and [OWLET](https://github.com/denisemw/OWLET).
+The code in this repository offers more streamlined preprocessing on the [WebGazer](https://github.com/brownhci/WebGazer) data created by [MB-ManyWebcams](https://github.com/adriansteffan/manywebcams-eyetracking) and analyzes the captured webcam footage with both [ICatcher+](https://github.com/erelyotam/icatcher_plus) and [OWLET](https://github.com/denisemw/OWLET) (experimental).
 
-<!--The raw webcam data was collected during a spinoff of [ManyBabies](https://manybabies.org/). 
-While we cannot share the original webcam footage due to privacy concerns, the results of the preprocessing can be found in the `output` folder.-->
+The raw webcam data was collected during a spinoff of [ManyBabies](https://manybabies.org/). 
+While we cannot share the original webcam footage due to privacy concerns, the results of the preprocessing can be found in the `output_example` folders and `exclusion_example`.
 
 ## Prerequisites
 
@@ -131,34 +131,43 @@ in the `preprocessing` directory. The output of this operation is dependent on t
 
 ### Analysis
 
-1. Run the preprocessing for ICatcher and WebGazer
+1. Run the preprocessing for ICatcher and WebGazer (your own data)
+
+or 
+
+1. Rename `output_example` and `exclusion_example` to `output` and `exclusion` (provided data)
+
+then
 
 2. Unzip `inlab_data.csv.zip` in `analysis/`
 
-3. Install the packages listed at the top of `main.R` (fancy versioning is probably not needed since these are pretty basic)
+3. Install the packages listed at the top of `main.R` (fancy versioning is probably not needed since these are commonly used)
 
 4. Run `main.R` using [RStudio](https://posit.co/download/rstudio-desktop/)
 
 
 ## Built with
 
+### ICatcher+
+This project leverages [ICatcher+](https://github.com/erelyotam/icatcher_plus), as described in the following publication:
+
+Erel, Y., Shannon, K. A., Chu, J., Scott, K., Struhl, M. K., Cao, P., Tan, X., Hart, P., Raz, G., Piccolo, S., Mei, C., Potter, C., Jaffe-Dax, S., Lew-Williams, C., Tenenbaum, J., Fairchild, K., Bermano, A., & Liu, S. (2023). iCatcher+: Robust and Automated Annotation of Infants’ and Young Children’s Gaze Behavior From Videos Collected in Laboratory, Field, and Online Studies. Advances in Methods and Practices in Psychological Science.
+
 ### OWLET
 This repository distributes a modified version of [OWLET](https://github.com/denisemw/OWLET), originally developed and released by Denise Werchan. Details on the system can be found in the accompanying publication:
 
 Werchan, D. M., Thomason, M. E., & Brito, N. H. (2022). OWLET: An Automated, Open-Source Method for Infant Gaze Tracking using Smartphone and Webcam Recordings. Behavior Research Methods.
 
-The modified files can be found in [preprocessing/src/owlet_slim](preprocessing/src/owlet_slim) and were trimmed down to the functionality needed for this project and extended to fit into our workflow. No changes to the original eye-tracking algorithm were made.
+The modified files can be found in [preprocessing/src/owlet_slim](preprocessing/src/owlet_slim) and were trimmed down to the functionality needed for this project and extended to fit into our workflow (Video FPS, etc.). Changes to the functionality were kept minimal, but behavior currently differs from the original, causing y coordinates to default to different values in some edge cases.
+For further information on the changes, refer to [owlet_handler.py](preprocessing/src/owlet_handler.py) and the files in the [preprocessing/src/owlet_slim](preprocessing/src/owlet_slim) directory.
 
-### ICatcher+
-This project leverages [ICatcher+](https://github.com/erelyotam/icatcher_plus), as described in the following publication:
-
-Erel, Y., Shannon, K. A., Chu, J., Scott, K., Struhl, M. K., Cao, P., Tan, X., Hart, P., Raz, G., Piccolo, S., Mei, C., Potter, C., Jaffe-Dax, S., Lew-Williams, C., Tenenbaum, J., Fairchild, K., Bermano, A., & Liu, S. (2023). iCatcher+: Robust and Automated Annotation of Infants’ and Young Children’s Gaze Behavior From Videos Collected in Laboratory, Field, and Online Studies. Advances in Methods and Practices in Psychological Science.
 
 
 ## Known Issues / Todos
 
 * Renders of gaze dots onto the calibration stimulus are a bit innacurate, as the renderer expects stimuli with fixed aspect ratios, but the calibration varied with the screen size.
 * OWLET expects 16:9 webcam videos. Videos get cropped to fit that aspect ratio when preprocessing the videos for OWLET; however, this has only been tested with videos that are already 16:9 or that get cropped from a longer format (e.g. 4:3). The feature could break for wider video formats (e.g. 21:9)
+* Additionally to the OWLET issues mentioned above, OWLET assumes that the screen aspect-ratio for stimulus presentation is a fixed 16:9, therefore creating inaccurate results in other cases.
 
 ## License
 
