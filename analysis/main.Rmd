@@ -100,6 +100,7 @@ included_icatcher <- apply_exclusions_for_tracker('ICATCHER',icatcher_exclusions
 
 ```
 
+
 # Sample Description Webcam
 
 ```{r sample description for webcam data, warning=FALSE}
@@ -202,6 +203,10 @@ icatcher_ls_crit <- exctract_lookingscore_critical(icatcher_data)
 # because some labs used exactly the same id
 inlab$id <- paste0(inlab$subid, "_", inlab$lab)
 
+inlab_test <- inlab %>%
+  filter(experiment_num=="pilot_1a" & t >= -4000 & t <= 0) %>%
+  mutate(stimulus = substr(stimulus, 1, 6))
+  
 inlab_ls_by_trial <- inlab %>%
   filter(experiment_num=="pilot_1a" & t >= -4000 & t <= 0) %>%
   mutate(stimulus = substr(stimulus, 1, 6)) %>%
@@ -250,16 +255,39 @@ mean(inlab_ls_by_participant$lookingscore)
 
 print(full_data %>% group_by(method, stimulus) %>% summarise(lookingscore = mean(lookingscore)) %>% spread(key = method, value = lookingscore))
 
-## Bias in icatcher
-icatcher_bias <- icatcher_data_resampled %>% filter(look == 'left' | look == 'right') %>%  mutate(look = ifelse(look=='right', 1, 0))
-mean(icatcher_bias$look)
-print(t.test(icatcher_bias$look, mu = 0.5, alternative = "two.sided"))
+```
 
-left_leaning_icatcher_trials <- sum((icatcher_ls_crit$by_trial$stimulus == 'FAM_LL') | (icatcher_ls_crit$by_trial$stimulus == 'FAM_RL'))
-right_leaning_icatcher_trials <- sum((icatcher_ls_crit$by_trial$stimulus == 'FAM_LR') | (icatcher_ls_crit$by_trial$stimulus == 'FAM_RR'))
+# Exclusion analysis
 
-right_leaning_icatcher_trials/(right_leaning_icatcher_trials + left_leaning_icatcher_trials)
+```{r exclusion analysis, warning=FALSE}
 
+test_exclusions <- function(name_a, included_a,  excluded_a, name_b, included_b, excluded_b){
+  exclusion_table <- matrix(c(included_a, included_b, excluded_a, excluded_b), nrow = 2, ncol = 2, byrow = T)
+  rownames(exclusion_table) <- c('included', 'excluded')
+  colnames(exclusion_table) <- c(name_a, name_b)
+  
+  print(exclusion_table)
+
+  h3 <- chisq.test(exclusion_table)
+  print(h3) 
+  # p-value sign., both variables are not independent
+  #print(h3$expected)
+
+}
+
+total_participatns_webcam <- length(unique(general_exclusions$id))
+
+included_webgazer_n <- nrow(webgazer_aoi_ls_crit$by_participant)
+included_icatcher_n <- nrow(icatcher_ls_crit$by_participant)
+included_inlab_n <- nrow(inlab_ls_by_participant)
+
+excluded_webgazer_n <- total_participatns_webcam - included_webgazer_n
+excluded_icatcher_n <- total_participatns_webcam - included_icatcher_n
+excluded_inlab_n <- 8 # hardcoded as that information was not available in the data. REPLACE THIS IN CASE OF REPLICATION 
+
+test_exclusions('webgazer', included_webgazer_n, excluded_webgazer_n, 'icatcher', included_icatcher_n, excluded_icatcher_n)
+test_exclusions('webgazer', included_webgazer_n, excluded_webgazer_n, 'inlab', included_inlab_n, excluded_inlab_n)
+test_exclusions('icatcher', included_icatcher_n, excluded_icatcher_n, 'inlab', included_inlab_n, excluded_inlab_n)
 ```
 
 # Confirmatory Analysis
@@ -277,19 +305,29 @@ test_goal_based_prediction = function(name, values){
 test_goal_based_prediction('wg aoi by trial', webgazer_aoi_ls_crit$by_trial$lookingscore)
 test_goal_based_prediction('wg aoi by participant', webgazer_aoi_ls_crit$by_participant$lookingscore)
 
-test_goal_based_prediction('wg side by trial', webgazer_side_ls_crit$by_trial$lookingscore)
-test_goal_based_prediction('wg side by participant', webgazer_side_ls_crit$by_participant$lookingscore)
-
 test_goal_based_prediction('icatcher by trial', icatcher_ls_crit$by_trial$lookingscore)
 test_goal_based_prediction('icatcher by participant', icatcher_ls_crit$by_participant$lookingscore)
 
+# test_goal_based_prediction('inlab by trial', inlab_ls_by_trial$lookingscore)
+# test_goal_based_prediction('inlab by participant', inlab_ls_by_participant$lookingscore)
 
-## Compare to in lab sample (TODO: think again about what to test here)
+test_comparison_methods = function(name, values_a, values_b, paired){
+  print(name)
+  print(t.test(values_a, values_b, alternative = "two.sided", var.equal = T, paired=paired))
+  print(effsize::cohen.d(values_a, values_b, paired=paired))
+}
 
-h2 <- lm(lookingscore ~ method, data)
-anova(h2)
-summary(h2)
-plot(allEffects(h2))
+test_comparison_methods('inlab vs webgazer by trial', inlab_ls_by_trial$lookingscore, webgazer_aoi_ls_crit$by_trial$lookingscore, paired=F)
+test_comparison_methods('inlab vs webgazer by participant', inlab_ls_by_participant$lookingscore, webgazer_aoi_ls_crit$by_participant$lookingscore, paired=F)
+
+test_comparison_methods('inlab vs icatcher by trial', inlab_ls_by_trial$lookingscore, icatcher_ls_crit$by_trial$lookingscore, paired=F)
+test_comparison_methods('inlab vs icatcher by participant', inlab_ls_by_participant$lookingscore, icatcher_ls_crit$by_participant$lookingscore, paired=F)
+
+paired_by_participant <- inner_join(icatcher_ls_crit$by_participant, webgazer_aoi_ls_crit$by_participant, by='id')
+paired_by_trial <- inner_join(icatcher_ls_crit$by_trial, webgazer_aoi_ls_crit$by_trial, by=c('id', 'stimulus'))
+
+test_comparison_methods('icatcher vs webgazer by trial', paired_by_trial$lookingscore.x, paired_by_trial$lookingscore.y, paired=T)
+test_comparison_methods('icatcher vs webgazer by participant', paired_by_participant$lookingscore.x, paired_by_participant$lookingscore.y, paired=T)
 
 ```
 
@@ -388,9 +426,25 @@ calibration_hits <- icatcher_validate %>%
   mutate(hit = ifelse(rilakuma_side == look,1,0)) %>% 
   select(id, t, look, hit)
 
+
+calibration_hits_test <-  calibration_hits %>% mutate(look = ifelse('right' == look,1,0))
+t.test(calibration_hits_test$look, mu=0.5)
+
 calibration_hits_per_part <- calibration_hits %>% group_by(id) %>% summarize(score=mean(hit))
 
 mean(calibration_hits$hit)
+
+## Bias in icatcher
+icatcher_bias <- icatcher_data_resampled %>% filter(look == 'left' | look == 'right') %>%  mutate(look = ifelse(look=='right', 1, 0))
+mean(icatcher_bias$look)
+print(t.test(icatcher_bias$look, mu = 0.5, alternative = "two.sided"))
+
+left_leaning_icatcher_trials <- sum((icatcher_ls_crit$by_trial$stimulus == 'FAM_LL') | (icatcher_ls_crit$by_trial$stimulus == 'FAM_RL'))
+right_leaning_icatcher_trials <- sum((icatcher_ls_crit$by_trial$stimulus == 'FAM_LR') | (icatcher_ls_crit$by_trial$stimulus == 'FAM_RR'))
+
+right_leaning_icatcher_trials/(right_leaning_icatcher_trials + left_leaning_icatcher_trials)
+
+
 ```
 
 # Visualization
