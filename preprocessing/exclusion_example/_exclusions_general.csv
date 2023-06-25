@@ -48,13 +48,6 @@ LMU_158_B,FAM_LL,x,unattentive
 LMU_158_B,FAM_LR,x,unattentive
 LMU_158_B,FAM_RR,i,
 LMU_158_B,FAM_RL,x,unattentive
-LMU_166_B,calibration,i,
-LMU_166_B,validation1,i,
-LMU_166_B,validation2,i,
-LMU_166_B,FAM_LL,i,
-LMU_166_B,FAM_LR,i,
-LMU_166_B,FAM_RR,i,
-LMU_166_B,FAM_RL,i,
 LMU_180_A,calibration,i,
 LMU_180_A,validation1,i,
 LMU_180_A,validation2,i,
