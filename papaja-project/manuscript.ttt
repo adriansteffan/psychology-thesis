@@ -1,0 +1,72 @@
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+[tbp]
+
+\begin{center}
+\begin{threeparttable}
+
+\caption{\label{tab:lookingscore_table}An overview of the mean looking scores broken down by stimulus and gaze coding technology.}
+
+\begin{tabular}{lllll}
+\toprule
+ & \multicolumn{1}{c}{FAM\_LL} & \multicolumn{1}{c}{FAM\_LR} & \multicolumn{1}{c}{FAM\_RL} & \multicolumn{1}{c}{FAM\_RR}\\
+\midrule
+iCatcher+ & 0.55 & 0.68 & 0.59 & 0.62\\
+WebGazer & 0.62 & 0.59 & 0.55 & 0.54\\
+In-Lab & 0.84 & 0.57 & 0.76 & 0.80\\
+\bottomrule
+\end{tabular}
+
+\end{threeparttable}
+\end{center}
+
+\end{table*}
+\efloatseparator
+ 
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+[tbp]
+
+\begin{center}
+\begin{threeparttable}
+
+\caption{\label{tab:trial_freq}The absolute number of included trials, divided by stimulus and gaze coding technology.}
+
+\begin{tabular}{lllll}
+\toprule
+ & \multicolumn{1}{c}{FAM\_LL} & \multicolumn{1}{c}{FAM\_LR} & \multicolumn{1}{c}{FAM\_RL} & \multicolumn{1}{c}{FAM\_RR}\\
+\midrule
+iCatcher+ & 56 & 55 & 53 & 56\\
+WebGazer & 41 & 41 & 37 & 42\\
+In-Lab & 67 & 66 & 32 & 37\\
+\bottomrule
+\end{tabular}
+
+\end{threeparttable}
+\end{center}
+
+\end{table*}
+\efloatseparator
+ 
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+[tbp]
+
+\begin{center}
+\begin{threeparttable}
+
+\caption{\label{tab:kappa_table}The Cohen's kappa agreement scores between WebGazer and iCatcher+ when comparing the gaze direction the coders predicted. Values are differentiated by timeframe (during the critial period vs. after the critical period vs. from the start of the critical period to the end of the video) and the data points included (all vs. only those where WebGazer registered an AOI hit)}
+
+\begin{tabular}{llll}
+\toprule
+Points included & \multicolumn{1}{c}{During Critical Timeframe} & \multicolumn{1}{c}{After Critical Timeframe} & \multicolumn{1}{c}{During \& After}\\
+\midrule
+WebGazer AOI hit & 0.13 & 0.65 & 0.50\\
+All & 0.08 & 0.58 & 0.41\\
+\bottomrule
+\end{tabular}
+
+\end{threeparttable}
+\end{center}
+
+\end{table*}
