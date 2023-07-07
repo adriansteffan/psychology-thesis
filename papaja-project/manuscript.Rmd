@@ -34,7 +34,7 @@ csl               : "`r system.file('rmd', 'apa7.csl', package = 'papaja')`"
 documentclass     : "apa7"
 
 toc               : TRUE 
-classoption       : "man"
+classoption       : man, a4paper
 output            : papaja::apa6_pdf
 
 link-citations    : TRUE
